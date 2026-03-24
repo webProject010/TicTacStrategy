@@ -4,8 +4,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tic Tac Toe Multi Mode</title>
   <style>
-    body { font-family: sans-serif; background: #0f172a; color: #f1f5f9; display: flex; justify-content: center; align-items: flex-start; padding: 20px; }
-    .container { text-align: center; max-width: 400px; width: 100%; }
+    body { font-family: sans-serif; background: #0f172a; color: #f1f5f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    .container { text-align: center; }
     .board { display: grid; grid-template-columns: repeat(3, 100px); gap: 10px; margin: 20px auto; }
     .cell { width: 100px; height: 100px; background: #1e293b; display: flex; justify-content: center; align-items: center; font-size: 3rem; font-weight: bold; border-radius: 10px; border: 2px solid #334155; cursor: pointer; }
     .cell.win { border-color: #22c55e; }
@@ -13,8 +13,8 @@
     .play { background: #334155; color: #f1f5f9; }
     .reset { background: #ef4444; color: #f1f5f9; }
     .status { margin-top: 10px; font-size: 1.1rem; min-height: 24px; }
-    .controls { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; flex-wrap: wrap; }
-    .speed-control { display: flex; align-items: center; gap: 5px; margin-top: 10px; }
+    .controls { display: flex; justify-content: center; gap: 20px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+    .speed-control { display: flex; align-items: center; gap: 5px; }
     input[type=range] { width: 120px; }
   </style>
 </head>
@@ -27,7 +27,7 @@
         <button onclick="setMode('bot')">Bot vs Bot</button>
       </div>
       <div class="speed-control">
-        <label for="speedRange">Kecepatan Bot (ms): <span id="speedLabel">500</span></label>
+        <label for="speedRange">Kecepatan Bot vs Bot (ms): <span id="speedLabel">500</span></label>
         <input type="range" id="speedRange" min="100" max="1000" step="50" value="500">
       </div>
     </div><div class="board" id="board"></div>
@@ -43,10 +43,7 @@
     const BOT = 'O';
     const EMPTY = '';
     const STORAGE_KEY = 'ttt-bot-html';
-
-    const WIN_LINES = [
-      [0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]
-    ];
+    const WIN_LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 
     let board = Array(9).fill(EMPTY);
     let turn = HUMAN;
@@ -54,8 +51,9 @@
     let gameHistory = [];
     let score = {human:0, bot:0, draws:0};
     let hasEnded = false;
-    let mode = null; // 'human' atau 'bot'
+    let mode = null;
     let botSpeed = parseInt(document.getElementById('speedRange').value);
+    let botVsBotInterval = null;
 
     const boardEl = document.getElementById('board');
     const statusEl = document.getElementById('status');
@@ -122,6 +120,9 @@
       updateScore();
       updateQ(gameHistory, result);
       gameHistory=[];
+      if(mode==='bot' && !hasEnded){
+        setTimeout(resetGameAuto, botSpeed);
+      }
     }
 
     function updateScore(){
@@ -163,7 +164,7 @@
       turn=BOT;
       statusEl.textContent='Bot sedang berpikir...';
       renderBoard();
-      setTimeout(botMove, botSpeed);
+      setTimeout(botMove, 500);
     }
 
     function botMove(){
@@ -174,19 +175,25 @@
         board[move]=turn;
       }
       if(mode==='human') turn=HUMAN;
-      else turn=turn===BOT?HUMAN:BOT; // swap for bot vs bot
+      else turn = turn===BOT?HUMAN:BOT;
       renderBoard();
       const winner = checkWinner(board);
       if(winner) endGame(winner);
       else if(mode==='bot') setTimeout(botMove, botSpeed);
     }
 
+    function resetGameAuto(){
+      resetGame(true);
+    }
+
     function resetGame(keepLearned=true){
       board=Array(9).fill(EMPTY);
       turn=mode==='human'?HUMAN:BOT;
-      statusEl.textContent=mode==='human'?'Giliran kamu. Kamu X, bot O.':'Bot X memulai...';
       hasEnded=false;
       gameHistory=[];
+      score={human:0, bot:0, draws:0};
+      updateScore();
+      statusEl.textContent = mode==='human'?'Giliran kamu. Kamu X, bot O.':'Bot X memulai...';
       if(!keepLearned){memory={q:{}, games:0, wins:0, losses:0, draws:0}; localStorage.removeItem(STORAGE_KEY);}
       renderBoard();
       if(mode==='bot') setTimeout(botMove, botSpeed);
