@@ -2,36 +2,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tic Tac Toe Mode Pilihan</title>
+  <title>Tic Tac Toe Multi Mode</title>
   <style>
-    body { font-family: sans-serif; background: #0f172a; color: #f1f5f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-    .container { text-align: center; }
+    body { font-family: sans-serif; background: #0f172a; color: #f1f5f9; display: flex; justify-content: center; align-items: flex-start; padding: 20px; }
+    .container { text-align: center; max-width: 400px; width: 100%; }
     .board { display: grid; grid-template-columns: repeat(3, 100px); gap: 10px; margin: 20px auto; }
     .cell { width: 100px; height: 100px; background: #1e293b; display: flex; justify-content: center; align-items: center; font-size: 3rem; font-weight: bold; border-radius: 10px; border: 2px solid #334155; cursor: pointer; }
     .cell.win { border-color: #22c55e; }
     button { margin: 5px; padding: 10px 20px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
     .play { background: #334155; color: #f1f5f9; }
     .reset { background: #ef4444; color: #f1f5f9; }
-    .status { margin-top: 10px; font-size: 1.2rem; }
-    input[type=range] { width: 150px; }
+    .status { margin-top: 10px; font-size: 1.1rem; min-height: 24px; }
+    .controls { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+    .speed-control { display: flex; align-items: center; gap: 5px; margin-top: 10px; }
+    input[type=range] { width: 120px; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Tic Tac Toe</h1>
-    <div>
-      <button onclick="setMode('human')">Human vs Bot</button>
-      <button onclick="setMode('bot')">Bot vs Bot</button>
-      <label style="margin-left:10px;">Kecepatan Bot: <span id="speedLabel">500ms</span></label>
-      <input type="range" min="100" max="1000" step="50" value="500" id="speedRange">
-    </div>
-    <div class="board" id="board"></div>
-    <div class="status" id="status">Pilih mode untuk memulai.</div>
-    <div>
-      <button class="play" onclick="resetGame(true)">Main lagi</button>
-      <button class="reset" onclick="resetGame(false)">Hapus memori bot</button>
-    </div>
-    <div id="score">Player: 0 | Bot: 0 | Seri: 0</div>
+    <div class="controls">
+      <div>
+        <button onclick="setMode('human')">Human vs Bot</button>
+        <button onclick="setMode('bot')">Bot vs Bot</button>
+      </div>
+      <div class="speed-control">
+        <label for="speedRange">Kecepatan Bot (ms): <span id="speedLabel">500</span></label>
+        <input type="range" id="speedRange" min="100" max="1000" step="50" value="500">
+      </div>
+    </div><div class="board" id="board"></div>
+<div class="status" id="status">Pilih mode untuk memulai.</div>
+<div>
+  <button class="play" onclick="resetGame(true)">Main lagi</button>
+  <button class="reset" onclick="resetGame(false)">Hapus memori bot</button>
+</div>
+<div id="score">Player: 0 | Bot: 0 | Seri: 0</div>
+
   </div>  <script>
     const HUMAN = 'X';
     const BOT = 'O';
@@ -49,7 +55,7 @@
     let score = {human:0, bot:0, draws:0};
     let hasEnded = false;
     let mode = null; // 'human' atau 'bot'
-    let botSpeed = 500;
+    let botSpeed = parseInt(document.getElementById('speedRange').value);
 
     const boardEl = document.getElementById('board');
     const statusEl = document.getElementById('status');
@@ -59,7 +65,7 @@
 
     speedRange.addEventListener('input', ()=>{
       botSpeed = parseInt(speedRange.value);
-      speedLabel.textContent = botSpeed + 'ms';
+      speedLabel.textContent = botSpeed;
     });
 
     function setMode(selectedMode){
@@ -75,9 +81,7 @@
       }catch{return {q:{}, games:0, wins:0, losses:0, draws:0};}
     }
 
-    function saveMemory(){
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(memory));
-    }
+    function saveMemory(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(memory)); }
 
     function boardKey(b){ return b.map(c=>c===EMPTY?'-':c).join(''); }
 
@@ -148,7 +152,7 @@
         cell.className='cell';
         if(winner && WIN_LINES.some(l=>l.includes(i) && board[l[0]]===board[l[1]] && board[l[0]]===board[l[2]])) cell.classList.add('win');
         cell.textContent=board[i];
-        cell.onclick=()=>{if(mode==='human') humanMove(i)};
+        if(mode==='human') cell.onclick=()=>humanMove(i);
         boardEl.appendChild(cell);
       }
     }
@@ -169,7 +173,8 @@
         gameHistory.push({state:boardKey(board), action:move});
         board[move]=turn;
       }
-      turn = mode==='human'?HUMAN:turn===BOT_X?BOT_O:BOT_X;
+      if(mode==='human') turn=HUMAN;
+      else turn=turn===BOT?HUMAN:BOT; // swap for bot vs bot
       renderBoard();
       const winner = checkWinner(board);
       if(winner) endGame(winner);
@@ -178,7 +183,7 @@
 
     function resetGame(keepLearned=true){
       board=Array(9).fill(EMPTY);
-      turn=mode==='human'?HUMAN:BOT_X;
+      turn=mode==='human'?HUMAN:BOT;
       statusEl.textContent=mode==='human'?'Giliran kamu. Kamu X, bot O.':'Bot X memulai...';
       hasEnded=false;
       gameHistory=[];
