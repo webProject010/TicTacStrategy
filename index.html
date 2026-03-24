@@ -57,7 +57,7 @@ body {
   margin: 10px 0 0;
   color: var(--muted);
   font-size: 0.95rem;
-  max-width: 54ch;
+  max-width: 60ch;
 }
 
 .topbar {
@@ -104,6 +104,8 @@ button:active { transform: translateY(1px); }
   border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.18);
   background: rgba(15, 23, 42, 0.5);
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .speed-control label {
@@ -287,7 +289,7 @@ input[type="range"] { width: 170px; }
 </div>
 
 <div class="hint">
-  Main lagi hanya mengulang papan. Reset skor menghapus poin. Hapus memori bot menghapus pembelajaran yang tersimpan di browser.
+  Main lagi hanya mengulang papan. Reset skor menghapus poin dan membuka lagi cutscene streak. Hapus memori bot menghapus pembelajaran yang tersimpan di browser.
 </div>
 
   </div>  <div class="overlay" id="cutsceneOverlay" aria-hidden="true">
@@ -304,17 +306,17 @@ input[type="range"] { width: 170px; }
       </div>
     </div>
   </div>  <script>
-    const HUMAN = 'X';
+    const EMPTY = '';
     const BOT_X = 'X';
     const BOT_O = 'O';
-    const EMPTY = '';
     const STORAGE_KEY_X = 'ttt-learning-bot-X-v2';
     const STORAGE_KEY_O = 'ttt-learning-bot-O-v2';
     const HUMAN_BOT_DELAY = 450;
+    const CUTSCENE_VIDEO_URL = ''; // isi link video sendiri nanti
     const WIN_LINES = [
-      [0,1,2],[3,4,5],[6,7,8],
-      [0,3,6],[1,4,7],[2,5,8],
-      [0,4,8],[2,4,6]
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],
+      [0, 4, 8], [2, 4, 6]
     ];
 
     const elBoard = document.getElementById('board');
@@ -335,10 +337,11 @@ input[type="range"] { width: 170px; }
 
     let mode = null; // 'human' | 'bot'
     let board = Array(9).fill(EMPTY);
-    let turn = HUMAN;
+    let turn = BOT_X;
     let hasEnded = false;
     let pausedForCutscene = false;
-    let timerId = null;
+    let cutsceneShown = false;
+    let botTimer = null;
     let botSpeed = Number(elSpeed.value);
 
     let score = { x: 0, o: 0, draws: 0 };
@@ -346,11 +349,7 @@ input[type="range"] { width: 170px; }
 
     const memoryX = loadMemory(STORAGE_KEY_X);
     const memoryO = loadMemory(STORAGE_KEY_O);
-
-    const histories = {
-      X: [],
-      O: []
-    };
+    const histories = { X: [], O: [] };
 
     function loadMemory(key) {
       try {
@@ -373,36 +372,6 @@ input[type="range"] { width: 170px; }
       localStorage.setItem(key, JSON.stringify(data));
     }
 
-    function updateMemoryForSymbol(symbol, result) {
-      const mem = symbol === 'X' ? memoryX : memoryO;
-      const history = histories[symbol];
-      const alpha = 0.35;
-      const discount = 0.85;
-
-      let reward = 0;
-      if (result === 'draw') reward = 0.2;
-      else if (result === symbol) reward = 1;
-      else reward = -1;
-
-      let nextMax = 0;
-      for (let i = history.length - 1; i >= 0; i--) {
-        const { state, action } = history[i];
-        if (!mem.q[state]) mem.q[state] = {};
-        const current = mem.q[state][action] ?? 0;
-        const target = reward + discount * nextMax;
-        mem.q[state][action] = current + alpha * (target - current);
-        nextMax = Math.max(0, ...Object.values(mem.q[state]));
-      }
-
-      mem.games += 1;
-      if (result === symbol) mem.wins += 1;
-      else if (result === 'draw') mem.draws += 1;
-      else mem.losses += 1;
-
-      saveMemory(symbol === 'X' ? STORAGE_KEY_X : STORAGE_KEY_O, mem);
-      histories[symbol] = [];
-    }
-
     function clearAllLearning() {
       localStorage.removeItem(STORAGE_KEY_X);
       localStorage.removeItem(STORAGE_KEY_O);
@@ -413,9 +382,9 @@ input[type="range"] { width: 170px; }
     }
 
     function clearTimer() {
-      if (timerId !== null) {
-        clearTimeout(timerId);
-        timerId = null;
+      if (botTimer !== null) {
+        clearTimeout(botTimer);
+        botTimer = null;
       }
     }
 
@@ -434,18 +403,42 @@ input[type="range"] { width: 170px; }
       return b.map((cell, idx) => (cell === EMPTY ? idx : null)).filter((v) => v !== null);
     }
 
+    function cloneBoard(b) {
+      return b.slice();
+    }
+
+    function wouldWin(b, symbol, moveIndex) {
+      if (b[moveIndex] !== EMPTY) return false;
+      const temp = cloneBoard(b);
+      temp[moveIndex] = symbol;
+      return checkWinner(temp) === symbol;
+    }
+
+    function findWinningMove(b, symbol) {
+      return availableMoves(b).find((move) => wouldWin(b, symbol, move)) ?? null;
+    }
+
+    function findBlockingMove(b, symbol) {
+      const opponent = symbol === BOT_X ? BOT_O : BOT_X;
+      return findWinningMove(b, opponent);
+    }
+
     function chooseMove(symbol, currentBoard) {
-      const mem = symbol === 'X' ? memoryX : memoryO;
+      const mem = symbol === BOT_X ? memoryX : memoryO;
       const key = boardKey(currentBoard);
       const qTable = mem.q[key] || {};
       const avail = availableMoves(currentBoard);
       if (!avail.length) return null;
 
+      const winNow = findWinningMove(currentBoard, symbol);
+      if (winNow !== null) return winNow;
+
+      const blockNow = findBlockingMove(currentBoard, symbol);
+      if (blockNow !== null) return blockNow;
+
       const epsilonBase = mode === 'bot' ? Math.max(0.08, 0.30 - mem.games * 0.002) : 0.12;
       const explore = Math.random() < epsilonBase;
-      if (explore) {
-        return avail[Math.floor(Math.random() * avail.length)];
-      }
+      if (explore) return avail[Math.floor(Math.random() * avail.length)];
 
       let bestMove = avail[0];
       let bestValue = -Infinity;
@@ -457,6 +450,33 @@ input[type="range"] { width: 170px; }
         }
       }
       return bestMove;
+    }
+
+    function updateMemoryForSymbol(symbol, outcome) {
+      const mem = symbol === BOT_X ? memoryX : memoryO;
+      const history = histories[symbol];
+      const alpha = 0.35;
+      const discount = 0.85;
+
+      const reward = outcome === 'win' ? 1 : outcome === 'loss' ? -1 : 0.2;
+
+      let nextMax = 0;
+      for (let i = history.length - 1; i >= 0; i--) {
+        const { state, action } = history[i];
+        if (!mem.q[state]) mem.q[state] = {};
+        const current = mem.q[state][action] ?? 0;
+        const target = reward + discount * nextMax;
+        mem.q[state][action] = current + alpha * (target - current);
+        nextMax = Math.max(0, ...Object.values(mem.q[state]));
+      }
+
+      mem.games += 1;
+      if (outcome === 'win') mem.wins += 1;
+      else if (outcome === 'loss') mem.losses += 1;
+      else mem.draws += 1;
+
+      saveMemory(symbol === BOT_X ? STORAGE_KEY_X : STORAGE_KEY_O, mem);
+      histories[symbol] = [];
     }
 
     function setStatus(text) {
@@ -477,12 +497,12 @@ input[type="range"] { width: 170px; }
 
       for (let i = 0; i < 9; i++) {
         const cell = document.createElement('button');
-        cell.className = 'cell';
         cell.type = 'button';
+        cell.className = 'cell';
 
-        if (board[i] === 'X') cell.classList.add('x');
-        if (board[i] === 'O') cell.classList.add('o');
-        if (mode === 'human' && !hasEnded && board[i] === EMPTY && turn === HUMAN) cell.classList.add('clickable');
+        if (board[i] === BOT_X) cell.classList.add('x');
+        if (board[i] === BOT_O) cell.classList.add('o');
+        if (mode === 'human' && !hasEnded && turn === BOT_X && board[i] === EMPTY) cell.classList.add('clickable');
 
         const isWin = winner && WIN_LINES.some((line) => line.includes(i) && board[line[0]] && board[line[0]] === board[line[1]] && board[line[0]] === board[line[2]]);
         if (isWin) cell.classList.add('win');
@@ -493,21 +513,29 @@ input[type="range"] { width: 170px; }
       }
     }
 
-    function startRound(keepScore = true) {
+    function stopCutsceneVideo() {
+      const vid = document.getElementById('cutsceneVideo');
+      if (vid) {
+        try { vid.pause(); } catch (_) {}
+        try { vid.currentTime = 0; } catch (_) {}
+      }
+    }
+
+    function hideCutscene() {
+      elCutsceneOverlay.classList.remove('show');
+      elCutsceneOverlay.setAttribute('aria-hidden', 'true');
+      stopCutsceneVideo();
+    }
+
+    function resetBoardOnly(autoStart = false) {
       clearTimer();
       board = Array(9).fill(EMPTY);
-      turn = HUMAN;
       hasEnded = false;
       pausedForCutscene = false;
       histories.X = [];
       histories.O = [];
-      elCutsceneOverlay.classList.remove('show');
-      elCutsceneOverlay.setAttribute('aria-hidden', 'true');
-
-      if (!keepScore) {
-        score = { x: 0, o: 0, draws: 0 };
-        streak = { x: 0, o: 0 };
-      }
+      turn = BOT_X;
+      hideCutscene();
 
       if (mode === 'human') {
         setStatus('Giliran kamu. Kamu X, bot O.');
@@ -520,18 +548,54 @@ input[type="range"] { width: 170px; }
       updateScoreUI();
       renderBoard();
 
-      if (mode === 'bot') {
-        turn = HUMAN;
-        scheduleBotStep(250);
+      if (mode === 'bot' || autoStart) {
+        if (mode === 'bot') scheduleBotStep(250);
       }
+    }
+
+    function resetScoreOnly() {
+      score = { x: 0, o: 0, draws: 0 };
+      streak = { x: 0, o: 0 };
+      cutsceneShown = false;
+      updateScoreUI();
+      if (mode === 'human') setStatus('Skor direset. Giliran kamu.');
+      else if (mode === 'bot') setStatus('Skor direset. Bot X memulai otomatis.');
+      else setStatus('Skor direset.');
+    }
+
+    function resetEverythingButLearning() {
+      resetScoreOnly();
+      resetBoardOnly(true);
+    }
+
+    function startRoundAfterEnd() {
+      if (pausedForCutscene || mode !== 'bot') return;
+      clearTimer();
+      botTimer = setTimeout(() => {
+        if (pausedForCutscene || mode !== 'bot') return;
+        board = Array(9).fill(EMPTY);
+        hasEnded = false;
+        histories.X = [];
+        histories.O = [];
+        turn = BOT_X;
+        setStatus('Bot X memulai otomatis.');
+        renderBoard();
+        scheduleBotStep(250);
+      }, botSpeed);
+    }
+
+    function scheduleBotStep(delay) {
+      clearTimer();
+      if (pausedForCutscene || mode === null) return;
+      botTimer = setTimeout(botStep, delay);
     }
 
     function handleHumanClick(index) {
       if (mode !== 'human') return;
-      if (hasEnded || turn !== HUMAN) return;
+      if (hasEnded || pausedForCutscene || turn !== BOT_X) return;
       if (board[index] !== EMPTY) return;
 
-      board[index] = HUMAN;
+      board[index] = BOT_X;
       renderBoard();
 
       const winner = checkWinner(board);
@@ -545,20 +609,16 @@ input[type="range"] { width: 170px; }
       scheduleBotStep(HUMAN_BOT_DELAY);
     }
 
-    function scheduleBotStep(delay) {
-      clearTimer();
-      timerId = setTimeout(botStep, delay);
-    }
-
     function botStep() {
-      if (hasEnded || pausedForCutscene || !mode) return;
-      const currentSymbol = turn;
-      const move = chooseMove(currentSymbol, board);
+      if (hasEnded || pausedForCutscene || mode === null) return;
+
+      const symbol = turn;
+      const move = chooseMove(symbol, board);
       if (move === null) return;
 
       const before = boardKey(board);
-      board[move] = currentSymbol;
-      histories[currentSymbol].push({ state: before, action: move });
+      board[move] = symbol;
+      histories[symbol].push({ state: before, action: move });
       renderBoard();
 
       const winner = checkWinner(board);
@@ -568,12 +628,56 @@ input[type="range"] { width: 170px; }
       }
 
       if (mode === 'human') {
-        turn = HUMAN;
-        setStatus('Giliran kamu.');
+        turn = BOT_O;
+        setStatus('Bot sedang berpikir...');
+        scheduleBotStep(HUMAN_BOT_DELAY);
       } else {
-        turn = currentSymbol === BOT_X ? BOT_O : BOT_X;
+        turn = symbol === BOT_X ? BOT_O : BOT_X;
         setStatus(`Bot ${turn} sedang berpikir...`);
         scheduleBotStep(botSpeed);
+      }
+    }
+
+    function showCutscene(winnerSymbol) {
+      pausedForCutscene = true;
+      clearTimer();
+
+      elCutsceneTitle.textContent = winnerSymbol === BOT_X
+        ? 'Cutscene: Bot X win streak 20!'
+        : 'Cutscene: Bot O win streak 20!';
+      elCutsceneText.textContent = 'Pasang video cutscene kamu di area bawah ini. Saat video selesai atau tombol Lanjut ditekan, bot akan melanjutkan ronde berikutnya.';
+
+      const videoHtml = CUTSCENE_VIDEO_URL
+        ? `<video id="cutsceneVideo" src="${CUTSCENE_VIDEO_URL}" autoplay controls playsinline></video>`
+        : `<div style="padding:18px; text-align:center; color:#94a3b8;">Tambahkan link video cutscene di variabel <code>CUTSCENE_VIDEO_URL</code> nanti.</div>`;
+
+      elCutsceneMedia.innerHTML = videoHtml;
+      elCutsceneOverlay.classList.add('show');
+      elCutsceneOverlay.setAttribute('aria-hidden', 'false');
+
+      const vid = document.getElementById('cutsceneVideo');
+      if (vid) {
+        vid.addEventListener('ended', () => {
+          if (pausedForCutscene) endCutsceneAndResume();
+        }, { once: true });
+        vid.play().catch(() => {
+          // Jika autoplay diblok browser, pengguna masih bisa menekan play dari kontrol video.
+        });
+      }
+    }
+
+    function endCutsceneAndResume() {
+      hideCutscene();
+      pausedForCutscene = false;
+      if (mode === 'bot') {
+        board = Array(9).fill(EMPTY);
+        hasEnded = false;
+        histories.X = [];
+        histories.O = [];
+        turn = BOT_X;
+        setStatus('Bot X memulai otomatis.');
+        renderBoard();
+        scheduleBotStep(250);
       }
     }
 
@@ -582,7 +686,7 @@ input[type="range"] { width: 170px; }
       clearTimer();
 
       if (mode === 'human') {
-        if (result === HUMAN) {
+        if (result === BOT_X) {
           score.x += 1;
           setStatus('Kamu menang!');
         } else if (result === BOT_O) {
@@ -593,8 +697,7 @@ input[type="range"] { width: 170px; }
           setStatus('Seri!');
         }
 
-        updateMemoryForSymbol('X', result);
-        updateMemoryForSymbol('O', result);
+        updateMemoryForSymbol(BOT_O, result === BOT_O ? 'win' : result === 'draw' ? 'draw' : 'loss');
         updateScoreUI();
         renderBoard();
         return;
@@ -604,12 +707,12 @@ input[type="range"] { width: 170px; }
         score.draws += 1;
         streak.x = 0;
         streak.o = 0;
-        setStatus('Seri! Game berikutnya dimulai otomatis.');
-        updateMemoryForSymbol('X', 'draw');
-        updateMemoryForSymbol('O', 'draw');
+        setStatus('Seri! Ronde berikutnya akan dimulai otomatis.');
+        updateMemoryForSymbol(BOT_X, 'draw');
+        updateMemoryForSymbol(BOT_O, 'draw');
         updateScoreUI();
         renderBoard();
-        scheduleNextBotVsBotRound();
+        if (!pausedForCutscene) startRoundAfterEnd();
         return;
       }
 
@@ -625,84 +728,18 @@ input[type="range"] { width: 170px; }
         setStatus(`Bot O menang! Win streak: ${streak.o}`);
       }
 
-      updateMemoryForSymbol('X', result);
-      updateMemoryForSymbol('O', result);
+      updateMemoryForSymbol(BOT_X, result === BOT_X ? 'win' : 'loss');
+      updateMemoryForSymbol(BOT_O, result === BOT_O ? 'win' : 'loss');
       updateScoreUI();
       renderBoard();
 
-      if (mode === 'bot' && (streak.x >= 20 || streak.o >= 20)) {
+      if (!cutsceneShown && (streak.x >= 20 || streak.o >= 20)) {
+        cutsceneShown = true;
         showCutscene(result);
         return;
       }
 
-      if (mode === 'bot') {
-        scheduleNextBotVsBotRound();
-      }
-    }
-
-    function scheduleNextBotVsBotRound() {
-      clearTimer();
-      timerId = setTimeout(() => {
-        if (mode !== 'bot' || pausedForCutscene) return;
-        board = Array(9).fill(EMPTY);
-        hasEnded = false;
-        turn = BOT_X;
-        histories.X = [];
-        histories.O = [];
-        setStatus('Bot X memulai otomatis.');
-        renderBoard();
-        scheduleBotStep(botSpeed);
-      }, botSpeed);
-    }
-
-    function showCutscene(winnerSymbol) {
-      pausedForCutscene = true;
-      elCutsceneTitle.textContent = winnerSymbol === BOT_X ? 'Cutscene: Bot X win streak 20!' : 'Cutscene: Bot O win streak 20!';
-      elCutsceneText.textContent = 'Pasang video cutscene kamu di area bawah ini. Setelah ditutup, game lanjut ke ronde berikutnya.';
-      elCutsceneMedia.innerHTML = 'Tambahkan video / gambar cutscene di sini nanti';
-      elCutsceneOverlay.classList.add('show');
-      elCutsceneOverlay.setAttribute('aria-hidden', 'false');
-    }
-
-    function closeCutscene() {
-      pausedForCutscene = false;
-      streak.x = 0;
-      streak.o = 0;
-      elCutsceneOverlay.classList.remove('show');
-      elCutsceneOverlay.setAttribute('aria-hidden', 'true');
-      if (mode === 'bot') {
-        board = Array(9).fill(EMPTY);
-        hasEnded = false;
-        turn = BOT_X;
-        histories.X = [];
-        histories.O = [];
-        setStatus('Bot X memulai otomatis.');
-        updateScoreUI();
-        renderBoard();
-        scheduleBotStep(250);
-      }
-    }
-
-    function resetScoreOnly() {
-      score = { x: 0, o: 0, draws: 0 };
-      streak = { x: 0, o: 0 };
-      updateScoreUI();
-      if (mode === 'human') setStatus('Skor direset. Giliran kamu.');
-      else if (mode === 'bot') setStatus('Skor direset. Bot X memulai otomatis.');
-      else setStatus('Skor direset.');
-    }
-
-    function clearMemoryAndScore() {
-      clearAllLearning();
-      resetScoreOnly();
-      if (mode === 'human') {
-        startRound(true);
-      } else if (mode === 'bot') {
-        startRound(true);
-      } else {
-        board = Array(9).fill(EMPTY);
-        renderBoard();
-      }
+      if (!pausedForCutscene) startRoundAfterEnd();
     }
 
     elSpeed.addEventListener('input', () => {
@@ -712,28 +749,44 @@ input[type="range"] { width: 170px; }
 
     elHumanModeBtn.addEventListener('click', () => {
       mode = 'human';
-      startRound(true);
+      resetBoardOnly(true);
     });
 
     elBotModeBtn.addEventListener('click', () => {
       mode = 'bot';
-      startRound(true);
+      resetBoardOnly(true);
     });
 
     elMainLagiBtn.addEventListener('click', () => {
       if (!mode) return;
-      startRound(true);
-      if (mode === 'bot') {
-        scheduleBotStep(250);
-      }
+      resetBoardOnly(true);
     });
 
-    elResetScoreBtn.addEventListener('click', resetScoreOnly);
-    elClearMemoryBtn.addEventListener('click', clearMemoryAndScore);
-    elCloseCutsceneBtn.addEventListener('click', closeCutscene);
+    elResetScoreBtn.addEventListener('click', () => {
+      if (!mode) {
+        resetScoreOnly();
+        return;
+      }
+      resetScoreOnly();
+      resetBoardOnly(true);
+    });
+
+    elClearMemoryBtn.addEventListener('click', () => {
+      clearAllLearning();
+      resetScoreOnly();
+      if (mode) resetBoardOnly(true);
+    });
+
+    elCloseCutsceneBtn.addEventListener('click', () => {
+      if (pausedForCutscene) endCutsceneAndResume();
+    });
+
+    elCutsceneOverlay.addEventListener('click', (e) => {
+      if (e.target === elCutsceneOverlay && pausedForCutscene) endCutsceneAndResume();
+    });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && pausedForCutscene) closeCutscene();
+      if (e.key === 'Escape' && pausedForCutscene) endCutsceneAndResume();
     });
 
     updateScoreUI();
