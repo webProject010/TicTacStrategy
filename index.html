@@ -11,9 +11,7 @@
       --line: rgba(148, 163, 184, 0.18);
       --text: #e5e7eb;
       --muted: #94a3b8;
-      --accent: #38bdf8;
       --danger: #ef4444;
-      --success: #22c55e;
     }* { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
@@ -165,41 +163,40 @@ input[type="range"] { width: 170px; }
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(2, 6, 23, 0.78);
-  backdrop-filter: blur(8px);
+  background: #000;
   display: none;
   align-items: center;
   justify-content: center;
-  padding: 20px;
   z-index: 50;
+  padding: 0;
 }
 .overlay.show { display: flex; }
 
-.cutscene-card {
-  width: min(840px, 100%);
-  border-radius: 28px;
-  background: #0b1220;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.45);
-  padding: 18px;
-  display: grid;
-  gap: 14px;
-}
-.cutscene-header h2 { margin: 0; font-size: 1.5rem; }
-.cutscene-header p { margin: 6px 0 0; color: var(--muted); }
-.media-slot {
-  min-height: 320px;
-  border-radius: 22px;
-  border: 1px dashed rgba(148, 163, 184, 0.28);
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-  background: rgba(15, 23, 42, 0.55);
+.cutscene-stage {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
   overflow: hidden;
+  background: #000;
 }
-.media-slot video,
-.media-slot img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.cutscene-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+
+.cutscene-stage video,
+.cutscene-stage img,
+.cutscene-stage iframe {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border: 0;
+  background: #000;
+}
+
+.cutscene-tapzone {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  cursor: pointer;
+}
 
 @media (max-width: 480px) {
   .app { padding: 16px; border-radius: 22px; }
@@ -247,24 +244,16 @@ input[type="range"] { width: 170px; }
 </div>
 
   </div>  <div class="overlay" id="cutsceneOverlay" aria-hidden="true">
-    <div class="cutscene-card">
-      <div class="cutscene-header">
-        <h2 id="cutsceneTitle">Cutscene</h2>
-        <p id="cutsceneText">Video bisa kamu pasang sendiri nanti di area bawah ini.</p>
-      </div>
-      <div class="media-slot" id="cutsceneMedia">
-        Tambahkan video / gambar cutscene di sini nanti
-      </div>
-      <div class="cutscene-actions">
-        <button class="btn-primary" id="closeCutsceneBtn">Lanjut</button>
-      </div>
+    <div class="cutscene-stage" id="cutsceneStage">
+      <div id="cutsceneMedia" style="width:100%;height:100%;"></div>
+      <div class="cutscene-tapzone" id="cutsceneTapzone" aria-hidden="true"></div>
     </div>
   </div>  <script>
     const EMPTY = '';
     const BOT_X = 'X';
     const BOT_O = 'O';
-    const STORAGE_KEY_X = 'ttt-learning-bot-X-v3';
-    const STORAGE_KEY_O = 'ttt-learning-bot-O-v3';
+    const STORAGE_KEY_X = 'ttt-learning-bot-X-v4';
+    const STORAGE_KEY_O = 'ttt-learning-bot-O-v4';
     const HUMAN_BOT_DELAY = 450;
     const CUTSCENE_VIDEO_URL = ''; // isi link video sendiri nanti
     const WIN_LINES = [
@@ -285,10 +274,8 @@ input[type="range"] { width: 170px; }
     const elResetScoreBtn = document.getElementById('resetScoreBtn');
     const elClearMemoryBtn = document.getElementById('clearMemoryBtn');
     const elCutsceneOverlay = document.getElementById('cutsceneOverlay');
-    const elCutsceneTitle = document.getElementById('cutsceneTitle');
-    const elCutsceneText = document.getElementById('cutsceneText');
     const elCutsceneMedia = document.getElementById('cutsceneMedia');
-    const elCloseCutsceneBtn = document.getElementById('closeCutsceneBtn');
+    const elCutsceneTapzone = document.getElementById('cutsceneTapzone');
 
     let mode = null; // 'human' | 'bot'
     let board = Array(9).fill(EMPTY);
@@ -358,9 +345,7 @@ input[type="range"] { width: 170px; }
       return b.map((cell, idx) => (cell === EMPTY ? idx : null)).filter((v) => v !== null);
     }
 
-    function cloneBoard(b) {
-      return b.slice();
-    }
+    function cloneBoard(b) { return b.slice(); }
 
     function wouldWin(b, symbol, moveIndex) {
       if (b[moveIndex] !== EMPTY) return false;
@@ -433,9 +418,7 @@ input[type="range"] { width: 170px; }
       histories[symbol] = [];
     }
 
-    function setStatus(text) {
-      elStatus.textContent = text;
-    }
+    function setStatus(text) { elStatus.textContent = text; }
 
     function updateScoreUI() {
       if (mode === 'bot') {
@@ -491,13 +474,9 @@ input[type="range"] { width: 170px; }
       turn = BOT_X;
       hideCutscene();
 
-      if (mode === 'human') {
-        setStatus('Giliran kamu. Kamu X, bot O.');
-      } else if (mode === 'bot') {
-        setStatus('Bot X memulai otomatis.');
-      } else {
-        setStatus('Pilih mode untuk memulai.');
-      }
+      if (mode === 'human') setStatus('Giliran kamu. Kamu X, bot O.');
+      else if (mode === 'bot') setStatus('Bot X memulai otomatis.');
+      else setStatus('Pilih mode untuk memulai.');
 
       updateScoreUI();
       renderBoard();
@@ -542,6 +521,7 @@ input[type="range"] { width: 170px; }
 
     function botStep() {
       if (hasEnded || pausedForCutscene || mode === null) return;
+
       const symbol = turn;
       const move = chooseMove(symbol, board);
       if (move === null) return;
@@ -584,7 +564,7 @@ input[type="range"] { width: 170px; }
       }, botSpeed);
     }
 
-    function endCutsceneAndResume() {
+    function resumeAfterCutscene() {
       hideCutscene();
       pausedForCutscene = false;
       if (mode === 'bot') {
@@ -605,14 +585,9 @@ input[type="range"] { width: 170px; }
       pausedForCutscene = true;
       clearTimer();
 
-      elCutsceneTitle.textContent = winnerSymbol === BOT_X
-        ? 'Cutscene: Bot X win streak 20!'
-        : 'Cutscene: Bot O win streak 20!';
-      elCutsceneText.textContent = 'Pasang video cutscene kamu di area bawah ini. Saat video selesai atau tombol Lanjut ditekan, bot akan lanjut lagi.';
-
       const videoHtml = CUTSCENE_VIDEO_URL
-        ? `<video id="cutsceneVideo" src="${CUTSCENE_VIDEO_URL}" autoplay controls playsinline></video>`
-        : `<div style="padding:18px; text-align:center; color:#94a3b8;">Tambahkan link video cutscene di variabel <code>CUTSCENE_VIDEO_URL</code>.</div>`;
+        ? `<video id="cutsceneVideo" src="${CUTSCENE_VIDEO_URL}" autoplay playsinline></video>`
+        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:clamp(1rem,2.5vw,1.6rem);font-weight:700;background:#000;">Tambahkan link video cutscene di variabel CUTSCENE_VIDEO_URL</div>`;
 
       elCutsceneMedia.innerHTML = videoHtml;
       elCutsceneOverlay.classList.add('show');
@@ -621,7 +596,7 @@ input[type="range"] { width: 170px; }
       const vid = document.getElementById('cutsceneVideo');
       if (vid) {
         vid.addEventListener('ended', () => {
-          if (pausedForCutscene) endCutsceneAndResume();
+          if (pausedForCutscene) resumeAfterCutscene();
         }, { once: true });
         vid.play().catch(() => {});
       }
@@ -690,12 +665,10 @@ input[type="range"] { width: 170px; }
     }
 
     function openTestCutscene() {
-      if (!mode) {
-        mode = 'bot';
-      }
+      if (!mode) mode = 'bot';
+      cutsceneShown = false;
       resetBoardOnly();
       streak.x = 20;
-      cutsceneShown = false;
       showCutscene(BOT_X);
     }
 
@@ -720,9 +693,7 @@ input[type="range"] { width: 170px; }
       resetBoardOnly();
     });
 
-    elTestCutsceneBtn.addEventListener('click', () => {
-      openTestCutscene();
-    });
+    elTestCutsceneBtn.addEventListener('click', openTestCutscene);
 
     elResetScoreBtn.addEventListener('click', () => {
       resetScoreOnly();
@@ -735,16 +706,12 @@ input[type="range"] { width: 170px; }
       if (mode) resetBoardOnly();
     });
 
-    elCloseCutsceneBtn.addEventListener('click', () => {
-      if (pausedForCutscene) endCutsceneAndResume();
-    });
-
-    elCutsceneOverlay.addEventListener('click', (e) => {
-      if (e.target === elCutsceneOverlay && pausedForCutscene) endCutsceneAndResume();
+    elCutsceneTapzone.addEventListener('click', () => {
+      if (pausedForCutscene) resumeAfterCutscene();
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && pausedForCutscene) endCutsceneAndResume();
+      if (e.key === 'Escape' && pausedForCutscene) resumeAfterCutscene();
     });
 
     updateScoreUI();
