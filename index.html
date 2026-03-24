@@ -1,209 +1,742 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html><html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tic Tac Toe Multi Mode</title>
   <style>
-    body { font-family: sans-serif; background: #0f172a; color: #f1f5f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-    .container { text-align: center; display: flex; flex-direction: column; align-items: center; }
-    .board { display: grid; grid-template-columns: repeat(3, 100px); gap: 10px; margin: 20px 0; }
-    .cell { width: 100px; height: 100px; background: #1e293b; display: flex; justify-content: center; align-items: center; font-size: 3rem; font-weight: bold; border-radius: 10px; border: 2px solid #334155; cursor: pointer; }
-    .cell.win { border-color: #22c55e; }
-    button { margin: 5px; padding: 10px 20px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
-    .play { background: #334155; color: #f1f5f9; }
-    .reset { background: #ef4444; color: #f1f5f9; }
-    .status { margin-top: 10px; font-size: 1.1rem; min-height: 24px; }
-    .controls { display: flex; justify-content: center; gap: 20px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
-    .speed-control { display: flex; align-items: center; gap: 5px; }
-    input[type=range] { width: 120px; }
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --line: #334155;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --danger: #ef4444;
+      --success: #22c55e;
+    }* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle at top, #172554 0%, var(--bg) 45%, #020617 100%);
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  padding: 20px;
+}
+
+.app {
+  width: min(760px, 100%);
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 28px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  padding: 22px;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.title {
+  text-align: center;
+  margin: 4px 0 0;
+}
+
+.title h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  line-height: 1.1;
+}
+
+.title p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  max-width: 54ch;
+}
+
+.topbar {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  justify-items: center;
+}
+
+.mode-row,
+.speed-row,
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+}
+
+button {
+  border: 0;
+  border-radius: 14px;
+  padding: 11px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.08s ease, opacity 0.2s ease, background 0.2s ease;
+}
+
+button:active { transform: translateY(1px); }
+
+.btn-primary { background: #1e293b; color: var(--text); }
+.btn-primary:hover { background: #273449; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-danger:hover { opacity: 0.92; }
+.btn-soft { background: #0b1220; color: var(--text); border: 1px solid rgba(148, 163, 184, 0.25); }
+.btn-soft:hover { background: #111827; }
+
+.speed-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.speed-control label {
+  font-size: 0.92rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+input[type="range"] { width: 170px; }
+
+.board-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(86px, 108px));
+  gap: 12px;
+  justify-content: center;
+  align-content: center;
+}
+
+.cell {
+  width: min(108px, 27vw);
+  aspect-ratio: 1;
+  border-radius: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(2.5rem, 8vw, 4rem);
+  font-weight: 800;
+  user-select: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.cell.clickable { cursor: pointer; }
+.cell.clickable:hover { outline: 2px solid rgba(56, 189, 248, 0.25); }
+.cell.win { border-color: rgba(34, 197, 94, 0.9); box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.12), inset 0 1px 0 rgba(255,255,255,0.05); }
+.x { color: #67e8f9; }
+.o { color: #fda4af; }
+
+.status {
+  min-height: 24px;
+  text-align: center;
+  color: var(--text);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.score {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.score span {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.86rem;
+  text-align: center;
+  max-width: 60ch;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.78);
+  backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+
+.overlay.show { display: flex; }
+
+.cutscene-card {
+  width: min(820px, 100%);
+  border-radius: 28px;
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.45);
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.cutscene-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.cutscene-header p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.media-slot {
+  min-height: 320px;
+  border-radius: 22px;
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  background: rgba(15, 23, 42, 0.55);
+  overflow: hidden;
+}
+
+.media-slot video,
+.media-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cutscene-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .app { padding: 16px; border-radius: 22px; }
+  .board { gap: 10px; }
+  .speed-control { width: 100%; justify-content: space-between; }
+  input[type="range"] { width: 130px; }
+}
+
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Tic Tac Toe</h1>
-    <div class="controls">
-      <div>
-        <button onclick="setMode('human')">Human vs Bot</button>
-        <button onclick="setMode('bot')">Bot vs Bot</button>
-      </div>
-      <div class="speed-control">
-        <label for="speedRange">Kecepatan Bot vs Bot (ms): <span id="speedLabel">500</span></label>
-        <input type="range" id="speedRange" min="100" max="1000" step="50" value="500">
-      </div>
-    </div><div class="board" id="board"></div>
-<div class="status" id="status">Pilih mode untuk memulai.</div>
-<div>
-  <button class="play" onclick="resetGame(true)">Main lagi</button>
-  <button class="reset" onclick="resetGame(false)">Hapus memori bot</button>
-</div>
-<div id="score">Player: 0 | Bot: 0 | Seri: 0</div>
+  <div class="app">
+    <div class="title">
+      <h1>Tic Tac Toe</h1>
+      <p>Mode Human vs Bot memakai satu bot yang belajar. Mode Bot vs Bot memakai dua bot yang masing-masing belajar sendiri.</p>
+    </div><div class="topbar">
+  <div class="mode-row">
+    <button class="btn-primary" id="humanModeBtn">Human vs Bot</button>
+    <button class="btn-primary" id="botModeBtn">Bot vs Bot</button>
+  </div>
 
+  <div class="speed-row">
+    <div class="speed-control">
+      <label for="speedRange">Kecepatan bot vs bot</label>
+      <strong><span id="speedLabel">500</span> ms</strong>
+      <input type="range" id="speedRange" min="100" max="1000" step="50" value="500" />
+    </div>
+  </div>
+</div>
+
+<div class="board-wrap">
+  <div class="board" id="board"></div>
+</div>
+
+<div class="status" id="status">Pilih mode untuk memulai.</div>
+<div class="score" id="score">Kamu: <span>0</span> | Bot: <span>0</span> | Seri: <span>0</span></div>
+
+<div class="actions-row">
+  <button class="btn-soft" id="mainLagiBtn">Main lagi</button>
+  <button class="btn-danger" id="resetScoreBtn">Reset skor</button>
+  <button class="btn-danger" id="clearMemoryBtn">Hapus memori bot</button>
+</div>
+
+<div class="hint">
+  Main lagi hanya mengulang papan. Reset skor menghapus poin. Hapus memori bot menghapus pembelajaran yang tersimpan di browser.
+</div>
+
+  </div>  <div class="overlay" id="cutsceneOverlay" aria-hidden="true">
+    <div class="cutscene-card">
+      <div class="cutscene-header">
+        <h2 id="cutsceneTitle">Cutscene</h2>
+        <p id="cutsceneText">Video bisa kamu pasang sendiri nanti di area bawah ini.</p>
+      </div>
+      <div class="media-slot" id="cutsceneMedia">
+        Tambahkan video / gambar cutscene di sini nanti
+      </div>
+      <div class="cutscene-actions">
+        <button class="btn-primary" id="closeCutsceneBtn">Lanjut</button>
+      </div>
+    </div>
   </div>  <script>
     const HUMAN = 'X';
-    const BOT = 'O';
+    const BOT_X = 'X';
+    const BOT_O = 'O';
     const EMPTY = '';
-    const STORAGE_KEY = 'ttt-bot-html';
-    const WIN_LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    const STORAGE_KEY_X = 'ttt-learning-bot-X-v2';
+    const STORAGE_KEY_O = 'ttt-learning-bot-O-v2';
+    const HUMAN_BOT_DELAY = 450;
+    const WIN_LINES = [
+      [0,1,2],[3,4,5],[6,7,8],
+      [0,3,6],[1,4,7],[2,5,8],
+      [0,4,8],[2,4,6]
+    ];
 
+    const elBoard = document.getElementById('board');
+    const elStatus = document.getElementById('status');
+    const elScore = document.getElementById('score');
+    const elSpeed = document.getElementById('speedRange');
+    const elSpeedLabel = document.getElementById('speedLabel');
+    const elHumanModeBtn = document.getElementById('humanModeBtn');
+    const elBotModeBtn = document.getElementById('botModeBtn');
+    const elMainLagiBtn = document.getElementById('mainLagiBtn');
+    const elResetScoreBtn = document.getElementById('resetScoreBtn');
+    const elClearMemoryBtn = document.getElementById('clearMemoryBtn');
+    const elCutsceneOverlay = document.getElementById('cutsceneOverlay');
+    const elCutsceneTitle = document.getElementById('cutsceneTitle');
+    const elCutsceneText = document.getElementById('cutsceneText');
+    const elCutsceneMedia = document.getElementById('cutsceneMedia');
+    const elCloseCutsceneBtn = document.getElementById('closeCutsceneBtn');
+
+    let mode = null; // 'human' | 'bot'
     let board = Array(9).fill(EMPTY);
     let turn = HUMAN;
-    let memory = loadMemory();
-    let gameHistory = [];
-    let score = {human:0, bot:0, draws:0};
     let hasEnded = false;
-    let mode = null;
-    let botSpeed = parseInt(document.getElementById('speedRange').value);
+    let pausedForCutscene = false;
+    let timerId = null;
+    let botSpeed = Number(elSpeed.value);
 
-    const boardEl = document.getElementById('board');
-    const statusEl = document.getElementById('status');
-    const scoreEl = document.getElementById('score');
-    const speedRange = document.getElementById('speedRange');
-    const speedLabel = document.getElementById('speedLabel');
+    let score = { x: 0, o: 0, draws: 0 };
+    let streak = { x: 0, o: 0 };
 
-    speedRange.addEventListener('input', ()=>{
-      botSpeed = parseInt(speedRange.value);
-      speedLabel.textContent = botSpeed;
-    });
+    const memoryX = loadMemory(STORAGE_KEY_X);
+    const memoryO = loadMemory(STORAGE_KEY_O);
 
-    function setMode(selectedMode){
-      mode = selectedMode;
-      resetGame(true);
-      statusEl.textContent = mode==='human' ? 'Giliran kamu. Kamu X, bot O.' : 'Bot X memulai...';
-    }
+    const histories = {
+      X: [],
+      O: []
+    };
 
-    function loadMemory(){
-      try{
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : {q:{}, games:0, wins:0, losses:0, draws:0};
-      }catch{return {q:{}, games:0, wins:0, losses:0, draws:0};}
-    }
-
-    function saveMemory(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(memory)); }
-
-    function boardKey(b){ return b.map(c=>c===EMPTY?'-':c).join(''); }
-
-    function checkWinner(b){
-      for(const [a,b1,c] of WIN_LINES){
-        if(b[a] && b[a]===b[b1] && b[a]===b[c]) return b[a];
+    function loadMemory(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return { q: {}, games: 0, wins: 0, losses: 0, draws: 0 };
+        const parsed = JSON.parse(raw);
+        return {
+          q: parsed.q || {},
+          games: parsed.games || 0,
+          wins: parsed.wins || 0,
+          losses: parsed.losses || 0,
+          draws: parsed.draws || 0,
+        };
+      } catch {
+        return { q: {}, games: 0, wins: 0, losses: 0, draws: 0 };
       }
-      return b.every(cell=>cell!==EMPTY)?'draw':null;
     }
 
-    function updateQ(history, result){
-      const alpha=0.35, discount=0.85;
-      const reward=result===BOT?1:result===HUMAN?-1:0.2;
-      let nextMax=0;
-      for(let i=history.length-1;i>=0;i--){
-        const {state, action}=history[i];
-        if(!memory.q[state]) memory.q[state]={};
-        const current = memory.q[state][action]||0;
-        const target = reward + discount*nextMax;
-        memory.q[state][action]=current+alpha*(target-current);
-        nextMax = Math.max(...Object.values(memory.q[state]),0);
+    function saveMemory(key, data) {
+      localStorage.setItem(key, JSON.stringify(data));
+    }
+
+    function updateMemoryForSymbol(symbol, result) {
+      const mem = symbol === 'X' ? memoryX : memoryO;
+      const history = histories[symbol];
+      const alpha = 0.35;
+      const discount = 0.85;
+
+      let reward = 0;
+      if (result === 'draw') reward = 0.2;
+      else if (result === symbol) reward = 1;
+      else reward = -1;
+
+      let nextMax = 0;
+      for (let i = history.length - 1; i >= 0; i--) {
+        const { state, action } = history[i];
+        if (!mem.q[state]) mem.q[state] = {};
+        const current = mem.q[state][action] ?? 0;
+        const target = reward + discount * nextMax;
+        mem.q[state][action] = current + alpha * (target - current);
+        nextMax = Math.max(0, ...Object.values(mem.q[state]));
       }
-      memory.games+=1;
-      saveMemory();
+
+      mem.games += 1;
+      if (result === symbol) mem.wins += 1;
+      else if (result === 'draw') mem.draws += 1;
+      else mem.losses += 1;
+
+      saveMemory(symbol === 'X' ? STORAGE_KEY_X : STORAGE_KEY_O, mem);
+      histories[symbol] = [];
     }
 
-    function endGame(result){
-      hasEnded=true;
-      if(mode==='human'){
-        if(result===HUMAN){statusEl.textContent='Kamu menang!'; score.human+=1;}
-        else if(result===BOT){statusEl.textContent='Bot menang!'; score.bot+=1;}
-        else{statusEl.textContent='Seri!'; score.draws+=1;}
-      }else{
-        if(result===HUMAN){statusEl.textContent='Bot X menang!'; score.human+=1;}
-        else if(result===BOT){statusEl.textContent='Bot O menang!'; score.bot+=1;}
-        else{statusEl.textContent='Seri!'; score.draws+=1;}
+    function clearAllLearning() {
+      localStorage.removeItem(STORAGE_KEY_X);
+      localStorage.removeItem(STORAGE_KEY_O);
+      memoryX.q = {}; memoryX.games = 0; memoryX.wins = 0; memoryX.losses = 0; memoryX.draws = 0;
+      memoryO.q = {}; memoryO.games = 0; memoryO.wins = 0; memoryO.losses = 0; memoryO.draws = 0;
+      histories.X = [];
+      histories.O = [];
+    }
+
+    function clearTimer() {
+      if (timerId !== null) {
+        clearTimeout(timerId);
+        timerId = null;
       }
-      updateScore();
-      updateQ(gameHistory, result);
-      gameHistory=[];
-      if(mode==='bot') setTimeout(resetGameAuto, botSpeed);
     }
 
-    function updateScore(){
-      scoreEl.textContent=`Player: ${score.human} | Bot: ${score.bot} | Seri: ${score.draws}`;
+    function boardKey(b) {
+      return b.map((c) => (c === EMPTY ? '-' : c)).join('');
     }
 
-    function pickBotMove(currentBoard){
+    function checkWinner(b) {
+      for (const [a, b1, c] of WIN_LINES) {
+        if (b[a] && b[a] === b[b1] && b[a] === b[c]) return b[a];
+      }
+      return b.every((cell) => cell !== EMPTY) ? 'draw' : null;
+    }
+
+    function availableMoves(b) {
+      return b.map((cell, idx) => (cell === EMPTY ? idx : null)).filter((v) => v !== null);
+    }
+
+    function chooseMove(symbol, currentBoard) {
+      const mem = symbol === 'X' ? memoryX : memoryO;
       const key = boardKey(currentBoard);
-      const qTable = memory.q[key]||{};
-      const available = currentBoard.map((c,i)=>c===EMPTY?i:null).filter(v=>v!==null);
-      if(!available.length) return null;
-      const epsilon = Math.max(0.08, 0.28-memory.games*0.002);
-      const explore = Math.random()<epsilon;
-      if(explore) return available[Math.floor(Math.random()*available.length)];
-      let bestMove = available[0], bestValue=-Infinity;
-      for(const move of available){
-        const value = qTable[move]||0;
-        if(value>bestValue){bestValue=value; bestMove=move;}
+      const qTable = mem.q[key] || {};
+      const avail = availableMoves(currentBoard);
+      if (!avail.length) return null;
+
+      const epsilonBase = mode === 'bot' ? Math.max(0.08, 0.30 - mem.games * 0.002) : 0.12;
+      const explore = Math.random() < epsilonBase;
+      if (explore) {
+        return avail[Math.floor(Math.random() * avail.length)];
+      }
+
+      let bestMove = avail[0];
+      let bestValue = -Infinity;
+      for (const move of avail) {
+        const value = qTable[move] ?? 0;
+        if (value > bestValue) {
+          bestValue = value;
+          bestMove = move;
+        }
       }
       return bestMove;
     }
 
-    function renderBoard(){
-      boardEl.innerHTML='';
-      const winner = checkWinner(board);
-      for(let i=0;i<9;i++){
-        const cell = document.createElement('div');
-        cell.className='cell';
-        if(winner && WIN_LINES.some(l=>l.includes(i) && board[l[0]]===board[l[1]] && board[l[0]]===board[l[2]])) cell.classList.add('win');
-        cell.textContent=board[i];
-        if(mode==='human') cell.onclick=()=>humanMove(i);
-        boardEl.appendChild(cell);
+    function setStatus(text) {
+      elStatus.textContent = text;
+    }
+
+    function updateScoreUI() {
+      if (mode === 'bot') {
+        elScore.innerHTML = `Bot X: <span>${score.x}</span> | Bot O: <span>${score.o}</span> | Seri: <span>${score.draws}</span>`;
+      } else {
+        elScore.innerHTML = `Kamu: <span>${score.x}</span> | Bot: <span>${score.o}</span> | Seri: <span>${score.draws}</span>`;
       }
     }
 
-    function humanMove(idx){
-      if(turn!==HUMAN || hasEnded || board[idx]!==EMPTY) return;
-      board[idx]=HUMAN;
-      turn=BOT;
-      statusEl.textContent='Bot sedang berpikir...';
-      renderBoard();
-      setTimeout(botMove, 500);
-    }
-
-    function botMove(){
-      if(hasEnded) return;
-      const move = pickBotMove(board);
-      if(move!==null){
-        gameHistory.push({state:boardKey(board), action:move});
-        board[move]=turn;
-      }
-      if(mode==='human') turn=HUMAN;
-      else turn = turn===BOT?HUMAN:BOT;
-      renderBoard();
+    function renderBoard() {
+      elBoard.innerHTML = '';
       const winner = checkWinner(board);
-      if(winner) endGame(winner);
-      else if(mode==='bot') setTimeout(botMove, botSpeed);
+
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('button');
+        cell.className = 'cell';
+        cell.type = 'button';
+
+        if (board[i] === 'X') cell.classList.add('x');
+        if (board[i] === 'O') cell.classList.add('o');
+        if (mode === 'human' && !hasEnded && board[i] === EMPTY && turn === HUMAN) cell.classList.add('clickable');
+
+        const isWin = winner && WIN_LINES.some((line) => line.includes(i) && board[line[0]] && board[line[0]] === board[line[1]] && board[line[0]] === board[line[2]]);
+        if (isWin) cell.classList.add('win');
+
+        cell.textContent = board[i];
+        cell.addEventListener('click', () => handleHumanClick(i));
+        elBoard.appendChild(cell);
+      }
     }
 
-    function resetGameAuto(){
-      board=Array(9).fill(EMPTY);
-      turn=BOT;
-      hasEnded=false;
-      gameHistory=[];
-      score={human:0, bot:0, draws:0};
-      updateScore();
-      statusEl.textContent='Bot X memulai...';
+    function startRound(keepScore = true) {
+      clearTimer();
+      board = Array(9).fill(EMPTY);
+      turn = HUMAN;
+      hasEnded = false;
+      pausedForCutscene = false;
+      histories.X = [];
+      histories.O = [];
+      elCutsceneOverlay.classList.remove('show');
+      elCutsceneOverlay.setAttribute('aria-hidden', 'true');
+
+      if (!keepScore) {
+        score = { x: 0, o: 0, draws: 0 };
+        streak = { x: 0, o: 0 };
+      }
+
+      if (mode === 'human') {
+        setStatus('Giliran kamu. Kamu X, bot O.');
+      } else if (mode === 'bot') {
+        setStatus('Bot X memulai otomatis.');
+      } else {
+        setStatus('Pilih mode untuk memulai.');
+      }
+
+      updateScoreUI();
       renderBoard();
-      setTimeout(botMove, botSpeed);
+
+      if (mode === 'bot') {
+        turn = HUMAN;
+        scheduleBotStep(250);
+      }
     }
 
-    function resetGame(keepLearned=true){
-      board=Array(9).fill(EMPTY);
-      turn=mode==='human'?HUMAN:BOT;
-      hasEnded=false;
-      gameHistory=[];
-      score={human:0, bot:0, draws:0};
-      updateScore();
-      statusEl.textContent = mode==='human'?'Giliran kamu. Kamu X, bot O.':'Bot X memulai...';
-      if(!keepLearned){memory={q:{}, games:0, wins:0, losses:0, draws:0}; localStorage.removeItem(STORAGE_KEY);}
+    function handleHumanClick(index) {
+      if (mode !== 'human') return;
+      if (hasEnded || turn !== HUMAN) return;
+      if (board[index] !== EMPTY) return;
+
+      board[index] = HUMAN;
       renderBoard();
-      if(mode==='bot') setTimeout(botMove, botSpeed);
+
+      const winner = checkWinner(board);
+      if (winner) {
+        finishMatch(winner);
+        return;
+      }
+
+      turn = BOT_O;
+      setStatus('Bot sedang berpikir...');
+      scheduleBotStep(HUMAN_BOT_DELAY);
     }
 
+    function scheduleBotStep(delay) {
+      clearTimer();
+      timerId = setTimeout(botStep, delay);
+    }
+
+    function botStep() {
+      if (hasEnded || pausedForCutscene || !mode) return;
+      const currentSymbol = turn;
+      const move = chooseMove(currentSymbol, board);
+      if (move === null) return;
+
+      const before = boardKey(board);
+      board[move] = currentSymbol;
+      histories[currentSymbol].push({ state: before, action: move });
+      renderBoard();
+
+      const winner = checkWinner(board);
+      if (winner) {
+        finishMatch(winner);
+        return;
+      }
+
+      if (mode === 'human') {
+        turn = HUMAN;
+        setStatus('Giliran kamu.');
+      } else {
+        turn = currentSymbol === BOT_X ? BOT_O : BOT_X;
+        setStatus(`Bot ${turn} sedang berpikir...`);
+        scheduleBotStep(botSpeed);
+      }
+    }
+
+    function finishMatch(result) {
+      hasEnded = true;
+      clearTimer();
+
+      if (mode === 'human') {
+        if (result === HUMAN) {
+          score.x += 1;
+          setStatus('Kamu menang!');
+        } else if (result === BOT_O) {
+          score.o += 1;
+          setStatus('Bot menang!');
+        } else {
+          score.draws += 1;
+          setStatus('Seri!');
+        }
+
+        updateMemoryForSymbol('X', result);
+        updateMemoryForSymbol('O', result);
+        updateScoreUI();
+        renderBoard();
+        return;
+      }
+
+      if (result === 'draw') {
+        score.draws += 1;
+        streak.x = 0;
+        streak.o = 0;
+        setStatus('Seri! Game berikutnya dimulai otomatis.');
+        updateMemoryForSymbol('X', 'draw');
+        updateMemoryForSymbol('O', 'draw');
+        updateScoreUI();
+        renderBoard();
+        scheduleNextBotVsBotRound();
+        return;
+      }
+
+      if (result === BOT_X) {
+        score.x += 1;
+        streak.x += 1;
+        streak.o = 0;
+        setStatus(`Bot X menang! Win streak: ${streak.x}`);
+      } else {
+        score.o += 1;
+        streak.o += 1;
+        streak.x = 0;
+        setStatus(`Bot O menang! Win streak: ${streak.o}`);
+      }
+
+      updateMemoryForSymbol('X', result);
+      updateMemoryForSymbol('O', result);
+      updateScoreUI();
+      renderBoard();
+
+      if (mode === 'bot' && (streak.x >= 20 || streak.o >= 20)) {
+        showCutscene(result);
+        return;
+      }
+
+      if (mode === 'bot') {
+        scheduleNextBotVsBotRound();
+      }
+    }
+
+    function scheduleNextBotVsBotRound() {
+      clearTimer();
+      timerId = setTimeout(() => {
+        if (mode !== 'bot' || pausedForCutscene) return;
+        board = Array(9).fill(EMPTY);
+        hasEnded = false;
+        turn = BOT_X;
+        histories.X = [];
+        histories.O = [];
+        setStatus('Bot X memulai otomatis.');
+        renderBoard();
+        scheduleBotStep(botSpeed);
+      }, botSpeed);
+    }
+
+    function showCutscene(winnerSymbol) {
+      pausedForCutscene = true;
+      elCutsceneTitle.textContent = winnerSymbol === BOT_X ? 'Cutscene: Bot X win streak 20!' : 'Cutscene: Bot O win streak 20!';
+      elCutsceneText.textContent = 'Pasang video cutscene kamu di area bawah ini. Setelah ditutup, game lanjut ke ronde berikutnya.';
+      elCutsceneMedia.innerHTML = 'Tambahkan video / gambar cutscene di sini nanti';
+      elCutsceneOverlay.classList.add('show');
+      elCutsceneOverlay.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeCutscene() {
+      pausedForCutscene = false;
+      streak.x = 0;
+      streak.o = 0;
+      elCutsceneOverlay.classList.remove('show');
+      elCutsceneOverlay.setAttribute('aria-hidden', 'true');
+      if (mode === 'bot') {
+        board = Array(9).fill(EMPTY);
+        hasEnded = false;
+        turn = BOT_X;
+        histories.X = [];
+        histories.O = [];
+        setStatus('Bot X memulai otomatis.');
+        updateScoreUI();
+        renderBoard();
+        scheduleBotStep(250);
+      }
+    }
+
+    function resetScoreOnly() {
+      score = { x: 0, o: 0, draws: 0 };
+      streak = { x: 0, o: 0 };
+      updateScoreUI();
+      if (mode === 'human') setStatus('Skor direset. Giliran kamu.');
+      else if (mode === 'bot') setStatus('Skor direset. Bot X memulai otomatis.');
+      else setStatus('Skor direset.');
+    }
+
+    function clearMemoryAndScore() {
+      clearAllLearning();
+      resetScoreOnly();
+      if (mode === 'human') {
+        startRound(true);
+      } else if (mode === 'bot') {
+        startRound(true);
+      } else {
+        board = Array(9).fill(EMPTY);
+        renderBoard();
+      }
+    }
+
+    elSpeed.addEventListener('input', () => {
+      botSpeed = Number(elSpeed.value);
+      elSpeedLabel.textContent = String(botSpeed);
+    });
+
+    elHumanModeBtn.addEventListener('click', () => {
+      mode = 'human';
+      startRound(true);
+    });
+
+    elBotModeBtn.addEventListener('click', () => {
+      mode = 'bot';
+      startRound(true);
+    });
+
+    elMainLagiBtn.addEventListener('click', () => {
+      if (!mode) return;
+      startRound(true);
+      if (mode === 'bot') {
+        scheduleBotStep(250);
+      }
+    });
+
+    elResetScoreBtn.addEventListener('click', resetScoreOnly);
+    elClearMemoryBtn.addEventListener('click', clearMemoryAndScore);
+    elCloseCutsceneBtn.addEventListener('click', closeCutscene);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && pausedForCutscene) closeCutscene();
+    });
+
+    updateScoreUI();
     renderBoard();
   </script></body>
 </html>
