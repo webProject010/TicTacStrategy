@@ -150,8 +150,17 @@ input[type="range"] { width: 170px; }
   align-items: center;
   color: var(--muted);
   font-size: 0.95rem;
+  text-align: center;
 }
 .score span { color: var(--text); font-weight: 700; }
+
+.streaks {
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-align: center;
+  line-height: 1.5;
+}
+.streaks strong { color: var(--text); }
 
 .hint {
   color: var(--muted);
@@ -236,7 +245,8 @@ input[type="range"] { width: 170px; }
 </div>
 
 <div class="status" id="status">Pilih mode untuk memulai.</div>
-<div class="score" id="score">Kamu: <span>0</span> | Bot: <span>0</span> | Seri: <span>0</span></div>
+<div class="score" id="score">Poin Kamu: <span>0</span> | Poin Bot: <span>0</span> | Seri: <span>0</span></div>
+<div class="streaks" id="streaks">Win streak: <strong>0</strong> | Loss streak: <strong>0</strong></div>
 
 <div class="row">
   <button class="btn-soft" id="mainLagiBtn">Main lagi</button>
@@ -255,8 +265,8 @@ input[type="range"] { width: 170px; }
     const EMPTY = '';
     const BOT_X = 'X';
     const BOT_O = 'O';
-    const STORAGE_KEY_X = 'ttt-learning-bot-X-v5';
-    const STORAGE_KEY_O = 'ttt-learning-bot-O-v5';
+    const STORAGE_KEY_X = 'ttt-learning-bot-X-v7';
+    const STORAGE_KEY_O = 'ttt-learning-bot-O-v7';
     const HUMAN_BOT_DELAY = 450;
     const CUTSCENE_VIDEO_URL = ''; // isi link video sendiri nanti
     const WIN_LINES = [
@@ -268,6 +278,7 @@ input[type="range"] { width: 170px; }
     const elBoard = document.getElementById('board');
     const elStatus = document.getElementById('status');
     const elScore = document.getElementById('score');
+    const elStreaks = document.getElementById('streaks');
     const elSpeed = document.getElementById('speedRange');
     const elSpeedLabel = document.getElementById('speedLabel');
     const elHumanModeBtn = document.getElementById('humanModeBtn');
@@ -279,9 +290,9 @@ input[type="range"] { width: 170px; }
     const elCutsceneOverlay = document.getElementById('cutsceneOverlay');
     const elCutsceneStage = document.getElementById('cutsceneStage');
 
-    let mode = null; // 'human' | 'bot'
+    let mode = null;
     let board = Array(9).fill(EMPTY);
-    let phase = 'idle'; // idle | human | bot | ended | cutscene
+    let phase = 'idle';
     let turn = BOT_X;
     let roundToken = 0;
     let botTimer = null;
@@ -290,7 +301,8 @@ input[type="range"] { width: 170px; }
     let botSpeed = Number(elSpeed.value);
 
     let score = { x: 0, o: 0, draws: 0 };
-    let streak = { x: 0, o: 0 };
+    let winStreak = { x: 0, o: 0 };
+    let lossStreak = { x: 0, o: 0 };
 
     const memoryX = loadMemory(STORAGE_KEY_X);
     const memoryO = loadMemory(STORAGE_KEY_O);
@@ -397,6 +409,14 @@ input[type="range"] { width: 170px; }
       return bestMove;
     }
 
+    function pointBonusForWin(currentWinStreak) {
+      return 2 * (1 + currentWinStreak);
+    }
+
+    function pointPenaltyForLoss(currentLossStreak) {
+      return 1 * (1 + currentLossStreak);
+    }
+
     function updateMemoryForSymbol(symbol, outcome) {
       const mem = symbol === BOT_X ? memoryX : memoryO;
       const history = histories[symbol];
@@ -429,10 +449,11 @@ input[type="range"] { width: 170px; }
 
     function updateScoreUI() {
       if (mode === 'bot') {
-        elScore.innerHTML = `Bot X: <span>${score.x}</span> | Bot O: <span>${score.o}</span> | Seri: <span>${score.draws}</span>`;
+        elScore.innerHTML = `Poin Bot X: <span>${score.x}</span> | Poin Bot O: <span>${score.o}</span> | Seri: <span>${score.draws}</span>`;
       } else {
-        elScore.innerHTML = `Kamu: <span>${score.x}</span> | Bot: <span>${score.o}</span> | Seri: <span>${score.draws}</span>`;
+        elScore.innerHTML = `Poin Kamu: <span>${score.x}</span> | Poin Bot: <span>${score.o}</span> | Seri: <span>${score.draws}</span>`;
       }
+      elStreaks.innerHTML = `Win streak: <strong>${Math.max(winStreak.x, winStreak.o)}</strong> | Loss streak: <strong>${Math.max(lossStreak.x, lossStreak.o)}</strong>`;
     }
 
     function renderBoard() {
@@ -486,6 +507,8 @@ input[type="range"] { width: 170px; }
 
       if (!preserveScore) {
         score = { x: 0, o: 0, draws: 0 };
+        winStreak = { x: 0, o: 0 };
+        lossStreak = { x: 0, o: 0 };
       }
 
       if (mode === 'human') {
@@ -506,7 +529,8 @@ input[type="range"] { width: 170px; }
 
     function resetScoreOnly() {
       score = { x: 0, o: 0, draws: 0 };
-      streak = { x: 0, o: 0 };
+      winStreak = { x: 0, o: 0 };
+      lossStreak = { x: 0, o: 0 };
       cutsceneShown = false;
       updateScoreUI();
       if (mode === 'human') setStatus('Skor direset. Giliran kamu.');
@@ -550,13 +574,7 @@ input[type="range"] { width: 170px; }
 
       const before = boardKey(board);
       board[move] = symbol;
-
-      if (mode === 'bot') {
-        histories[symbol].push({ state: before, action: move });
-      } else if (symbol === BOT_O) {
-        histories.BOT_O?.push?.({ state: before, action: move });
-      }
-
+      histories[symbol].push({ state: before, action: move });
       renderBoard();
 
       const winner = checkWinner(board);
@@ -599,7 +617,7 @@ input[type="range"] { width: 170px; }
       }
     }
 
-    function showCutscene({ winnerSymbol, autoplay = true, testMode = false } = {}) {
+    function showCutscene({ autoplay = true, testMode = false } = {}) {
       pausedForCutscene = true;
       phase = 'cutscene';
       clearTimer();
@@ -625,9 +643,7 @@ input[type="range"] { width: 170px; }
         }, { once: true });
 
         if (autoplay) {
-          video.play().catch(() => {
-            // Autoplay dengan suara bisa diblok browser; kontrol video tetap tersedia.
-          });
+          video.play().catch(() => {});
         }
       } else {
         const blank = document.createElement('div');
@@ -655,17 +671,36 @@ input[type="range"] { width: 170px; }
 
       if (mode === 'human') {
         if (result === BOT_X) {
-          score.x += 1;
-          setStatus('Kamu menang!');
+          const pts = pointBonusForWin(winStreak.x);
+          const lossPts = pointPenaltyForLoss(lossStreak.o);
+          score.x += pts;
+          score.o -= lossPts;
+          winStreak.x += 1;
+          lossStreak.x = 0;
+          winStreak.o = 0;
+          lossStreak.o += 1;
+          setStatus(`Kamu menang! +${pts} poin, bot -${lossPts} poin.`);
+          updateMemoryForSymbol(BOT_O, 'loss');
         } else if (result === BOT_O) {
-          score.o += 1;
-          setStatus('Bot menang!');
+          const pts = pointBonusForWin(winStreak.o);
+          const lossPts = pointPenaltyForLoss(lossStreak.x);
+          score.o += pts;
+          score.x -= lossPts;
+          winStreak.o += 1;
+          lossStreak.o = 0;
+          winStreak.x = 0;
+          lossStreak.x += 1;
+          setStatus(`Bot menang! +${pts} poin, kamu -${lossPts} poin.`);
+          updateMemoryForSymbol(BOT_O, 'win');
         } else {
           score.draws += 1;
+          winStreak.x = 0;
+          winStreak.o = 0;
+          lossStreak.x = 0;
+          lossStreak.o = 0;
           setStatus('Seri!');
+          updateMemoryForSymbol(BOT_O, 'draw');
         }
-
-        updateMemoryForSymbol(BOT_O, result === BOT_O ? 'win' : result === BOT_X ? 'loss' : 'draw');
         updateScoreUI();
         renderBoard();
         return;
@@ -673,8 +708,10 @@ input[type="range"] { width: 170px; }
 
       if (result === 'draw') {
         score.draws += 1;
-        streak.x = 0;
-        streak.o = 0;
+        winStreak.x = 0;
+        winStreak.o = 0;
+        lossStreak.x = 0;
+        lossStreak.o = 0;
         setStatus('Seri! Ronde berikutnya akan dimulai otomatis.');
         updateMemoryForSymbol(BOT_X, 'draw');
         updateMemoryForSymbol(BOT_O, 'draw');
@@ -685,15 +722,25 @@ input[type="range"] { width: 170px; }
       }
 
       if (result === BOT_X) {
-        score.x += 1;
-        streak.x += 1;
-        streak.o = 0;
-        setStatus(`Bot X menang! Win streak: ${streak.x}`);
+        const pts = pointBonusForWin(winStreak.x);
+        const lossPts = pointPenaltyForLoss(lossStreak.o);
+        score.x += pts;
+        score.o -= lossPts;
+        winStreak.x += 1;
+        lossStreak.x = 0;
+        winStreak.o = 0;
+        lossStreak.o += 1;
+        setStatus(`Bot X menang! +${pts} poin, Bot O -${lossPts} poin.`);
       } else {
-        score.o += 1;
-        streak.o += 1;
-        streak.x = 0;
-        setStatus(`Bot O menang! Win streak: ${streak.o}`);
+        const pts = pointBonusForWin(winStreak.o);
+        const lossPts = pointPenaltyForLoss(lossStreak.x);
+        score.o += pts;
+        score.x -= lossPts;
+        winStreak.o += 1;
+        lossStreak.o = 0;
+        winStreak.x = 0;
+        lossStreak.x += 1;
+        setStatus(`Bot O menang! +${pts} poin, Bot X -${lossPts} poin.`);
       }
 
       updateMemoryForSymbol(BOT_X, result === BOT_X ? 'win' : 'loss');
@@ -701,9 +748,9 @@ input[type="range"] { width: 170px; }
       updateScoreUI();
       renderBoard();
 
-      if (!cutsceneShown && (streak.x >= 20 || streak.o >= 20)) {
+      if (!cutsceneShown && (winStreak.x >= 20 || winStreak.o >= 20)) {
         cutsceneShown = true;
-        showCutscene({ winnerSymbol: result, autoplay: true, testMode: false });
+        showCutscene({ autoplay: true, testMode: false });
         return;
       }
 
@@ -714,10 +761,10 @@ input[type="range"] { width: 170px; }
       if (!mode) mode = 'bot';
       cutsceneShown = false;
       startRound({ preserveScore: true, autoStartBot: false });
-      streak.x = 20;
+      winStreak.x = 20;
       score.x = Math.max(score.x, 20);
       updateScoreUI();
-      showCutscene({ winnerSymbol: BOT_X, autoplay: false, testMode: true });
+      showCutscene({ autoplay: false, testMode: true });
     }
 
     elSpeed.addEventListener('input', () => {
