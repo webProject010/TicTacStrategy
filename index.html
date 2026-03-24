@@ -6,8 +6,8 @@
   <style>
     :root {
       --bg: #0f172a;
-      --card: rgba(15, 23, 42, 0.82);
-      --card-2: rgba(15, 23, 42, 0.56);
+      --card: rgba(15, 23, 42, 0.84);
+      --card-2: rgba(15, 23, 42, 0.58);
       --line: rgba(148, 163, 184, 0.18);
       --text: #e5e7eb;
       --muted: #94a3b8;
@@ -163,12 +163,11 @@ input[type="range"] { width: 170px; }
 .overlay {
   position: fixed;
   inset: 0;
-  background: #000;
   display: none;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
+  background: #000;
   z-index: 50;
-  padding: 0;
 }
 .overlay.show { display: flex; }
 
@@ -182,7 +181,8 @@ input[type="range"] { width: 170px; }
 
 .cutscene-stage video,
 .cutscene-stage img,
-.cutscene-stage iframe {
+.cutscene-stage iframe,
+.cutscene-stage .blank-cutscene {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -191,7 +191,13 @@ input[type="range"] { width: 170px; }
   background: #000;
 }
 
-.cutscene-tapzone {
+.blank-cutscene {
+  background:
+    radial-gradient(circle at center, rgba(56, 189, 248, 0.22), transparent 42%),
+    linear-gradient(180deg, #000 0%, #030712 100%);
+}
+
+.stage-click {
   position: absolute;
   inset: 0;
   background: transparent;
@@ -244,16 +250,13 @@ input[type="range"] { width: 170px; }
 </div>
 
   </div>  <div class="overlay" id="cutsceneOverlay" aria-hidden="true">
-    <div class="cutscene-stage" id="cutsceneStage">
-      <div id="cutsceneMedia" style="width:100%;height:100%;"></div>
-      <div class="cutscene-tapzone" id="cutsceneTapzone" aria-hidden="true"></div>
-    </div>
+    <div class="cutscene-stage" id="cutsceneStage"></div>
   </div>  <script>
     const EMPTY = '';
     const BOT_X = 'X';
     const BOT_O = 'O';
-    const STORAGE_KEY_X = 'ttt-learning-bot-X-v4';
-    const STORAGE_KEY_O = 'ttt-learning-bot-O-v4';
+    const STORAGE_KEY_X = 'ttt-learning-bot-X-v5';
+    const STORAGE_KEY_O = 'ttt-learning-bot-O-v5';
     const HUMAN_BOT_DELAY = 450;
     const CUTSCENE_VIDEO_URL = ''; // isi link video sendiri nanti
     const WIN_LINES = [
@@ -274,16 +277,16 @@ input[type="range"] { width: 170px; }
     const elResetScoreBtn = document.getElementById('resetScoreBtn');
     const elClearMemoryBtn = document.getElementById('clearMemoryBtn');
     const elCutsceneOverlay = document.getElementById('cutsceneOverlay');
-    const elCutsceneMedia = document.getElementById('cutsceneMedia');
-    const elCutsceneTapzone = document.getElementById('cutsceneTapzone');
+    const elCutsceneStage = document.getElementById('cutsceneStage');
 
     let mode = null; // 'human' | 'bot'
     let board = Array(9).fill(EMPTY);
+    let phase = 'idle'; // idle | human | bot | ended | cutscene
     let turn = BOT_X;
-    let hasEnded = false;
+    let roundToken = 0;
+    let botTimer = null;
     let pausedForCutscene = false;
     let cutsceneShown = false;
-    let botTimer = null;
     let botSpeed = Number(elSpeed.value);
 
     let score = { x: 0, o: 0, draws: 0 };
@@ -345,7 +348,9 @@ input[type="range"] { width: 170px; }
       return b.map((cell, idx) => (cell === EMPTY ? idx : null)).filter((v) => v !== null);
     }
 
-    function cloneBoard(b) { return b.slice(); }
+    function cloneBoard(b) {
+      return b.slice();
+    }
 
     function wouldWin(b, symbol, moveIndex) {
       if (b[moveIndex] !== EMPTY) return false;
@@ -418,7 +423,9 @@ input[type="range"] { width: 170px; }
       histories[symbol] = [];
     }
 
-    function setStatus(text) { elStatus.textContent = text; }
+    function setStatus(text) {
+      elStatus.textContent = text;
+    }
 
     function updateScoreUI() {
       if (mode === 'bot') {
@@ -439,7 +446,7 @@ input[type="range"] { width: 170px; }
 
         if (board[i] === BOT_X) cell.classList.add('x');
         if (board[i] === BOT_O) cell.classList.add('o');
-        if (mode === 'human' && !hasEnded && !pausedForCutscene && turn === BOT_X && board[i] === EMPTY) cell.classList.add('clickable');
+        if (mode === 'human' && phase === 'human' && !pausedForCutscene && board[i] === EMPTY) cell.classList.add('clickable');
 
         const isWin = winner && WIN_LINES.some((line) => line.includes(i) && board[line[0]] && board[line[0]] === board[line[1]] && board[line[0]] === board[line[2]]);
         if (isWin) cell.classList.add('win');
@@ -461,27 +468,40 @@ input[type="range"] { width: 170px; }
     function hideCutscene() {
       elCutsceneOverlay.classList.remove('show');
       elCutsceneOverlay.setAttribute('aria-hidden', 'true');
+      elCutsceneStage.innerHTML = '';
       stopCutsceneVideo();
     }
 
-    function resetBoardOnly() {
+    function startRound({ preserveScore = true, autoStartBot = false } = {}) {
       clearTimer();
+      roundToken += 1;
       board = Array(9).fill(EMPTY);
-      hasEnded = false;
-      pausedForCutscene = false;
       histories.X = [];
       histories.O = [];
+      pausedForCutscene = false;
+      hasEnded = false;
+      phase = mode === 'human' ? 'human' : (mode === 'bot' ? 'bot' : 'idle');
       turn = BOT_X;
       hideCutscene();
 
-      if (mode === 'human') setStatus('Giliran kamu. Kamu X, bot O.');
-      else if (mode === 'bot') setStatus('Bot X memulai otomatis.');
-      else setStatus('Pilih mode untuk memulai.');
+      if (!preserveScore) {
+        score = { x: 0, o: 0, draws: 0 };
+      }
+
+      if (mode === 'human') {
+        setStatus('Giliran kamu. Kamu X, bot O.');
+      } else if (mode === 'bot') {
+        setStatus('Bot X memulai otomatis.');
+      } else {
+        setStatus('Pilih mode untuk memulai.');
+      }
 
       updateScoreUI();
       renderBoard();
 
-      if (mode === 'bot') scheduleBotStep(250);
+      if (mode === 'bot' && autoStartBot) {
+        scheduleBotStep(250, roundToken);
+      }
     }
 
     function resetScoreOnly() {
@@ -494,15 +514,15 @@ input[type="range"] { width: 170px; }
       else setStatus('Skor direset.');
     }
 
-    function scheduleBotStep(delay) {
+    function scheduleBotStep(delay, token) {
       clearTimer();
       if (pausedForCutscene || mode === null || hasEnded) return;
-      botTimer = setTimeout(botStep, delay);
+      botTimer = setTimeout(() => botStep(token), delay);
     }
 
     function handleHumanClick(index) {
       if (mode !== 'human') return;
-      if (hasEnded || pausedForCutscene || turn !== BOT_X) return;
+      if (phase !== 'human' || pausedForCutscene || hasEnded) return;
       if (board[index] !== EMPTY) return;
 
       board[index] = BOT_X;
@@ -514,13 +534,15 @@ input[type="range"] { width: 170px; }
         return;
       }
 
+      phase = 'bot';
       turn = BOT_O;
       setStatus('Bot sedang berpikir...');
-      scheduleBotStep(HUMAN_BOT_DELAY);
+      scheduleBotStep(HUMAN_BOT_DELAY, roundToken);
     }
 
-    function botStep() {
-      if (hasEnded || pausedForCutscene || mode === null) return;
+    function botStep(token) {
+      if (token !== roundToken) return;
+      if (hasEnded || pausedForCutscene || mode === null || phase !== 'bot') return;
 
       const symbol = turn;
       const move = chooseMove(symbol, board);
@@ -528,7 +550,13 @@ input[type="range"] { width: 170px; }
 
       const before = boardKey(board);
       board[move] = symbol;
-      histories[symbol].push({ state: before, action: move });
+
+      if (mode === 'bot') {
+        histories[symbol].push({ state: before, action: move });
+      } else if (symbol === BOT_O) {
+        histories.BOT_O?.push?.({ state: before, action: move });
+      }
+
       renderBoard();
 
       const winner = checkWinner(board);
@@ -538,29 +566,24 @@ input[type="range"] { width: 170px; }
       }
 
       if (mode === 'human') {
-        turn = BOT_O;
-        setStatus('Bot sedang berpikir...');
-        scheduleBotStep(HUMAN_BOT_DELAY);
-      } else {
-        turn = symbol === BOT_X ? BOT_O : BOT_X;
-        setStatus(`Bot ${turn} sedang berpikir...`);
-        scheduleBotStep(botSpeed);
+        phase = 'human';
+        turn = BOT_X;
+        setStatus('Giliran kamu.');
+        return;
       }
+
+      turn = symbol === BOT_X ? BOT_O : BOT_X;
+      setStatus(`Bot ${turn} sedang berpikir...`);
+      scheduleBotStep(botSpeed, token);
     }
 
-    function endRoundAndMaybeAutoNext() {
+    function endRoundAndMaybeAutoNext(currentToken) {
       if (mode !== 'bot' || pausedForCutscene) return;
       clearTimer();
+      const token = currentToken ?? roundToken;
       botTimer = setTimeout(() => {
-        if (pausedForCutscene || mode !== 'bot') return;
-        board = Array(9).fill(EMPTY);
-        hasEnded = false;
-        histories.X = [];
-        histories.O = [];
-        turn = BOT_X;
-        setStatus('Bot X memulai otomatis.');
-        renderBoard();
-        scheduleBotStep(250);
+        if (pausedForCutscene || mode !== 'bot' || token !== roundToken) return;
+        startRound({ preserveScore: true, autoStartBot: true });
       }, botSpeed);
     }
 
@@ -568,58 +591,81 @@ input[type="range"] { width: 170px; }
       hideCutscene();
       pausedForCutscene = false;
       if (mode === 'bot') {
-        board = Array(9).fill(EMPTY);
-        hasEnded = false;
-        histories.X = [];
-        histories.O = [];
-        turn = BOT_X;
-        setStatus('Bot X memulai otomatis.');
-        renderBoard();
-        scheduleBotStep(250);
-      } else {
+        startRound({ preserveScore: true, autoStartBot: true });
+      } else if (mode === 'human') {
+        phase = 'human';
+        setStatus('Giliran kamu.');
         renderBoard();
       }
     }
 
-    function showCutscene(winnerSymbol) {
+    function showCutscene({ winnerSymbol, autoplay = true, testMode = false } = {}) {
       pausedForCutscene = true;
+      phase = 'cutscene';
       clearTimer();
 
-      const videoHtml = CUTSCENE_VIDEO_URL
-        ? `<video id="cutsceneVideo" src="${CUTSCENE_VIDEO_URL}" autoplay playsinline></video>`
-        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:clamp(1rem,2.5vw,1.6rem);font-weight:700;background:#000;">Tambahkan link video cutscene di variabel CUTSCENE_VIDEO_URL</div>`;
+      elCutsceneStage.innerHTML = '';
 
-      elCutsceneMedia.innerHTML = videoHtml;
-      elCutsceneOverlay.classList.add('show');
-      elCutsceneOverlay.setAttribute('aria-hidden', 'false');
+      const hasVideo = Boolean(CUTSCENE_VIDEO_URL) && !testMode;
+      if (hasVideo) {
+        const video = document.createElement('video');
+        video.id = 'cutsceneVideo';
+        video.src = CUTSCENE_VIDEO_URL;
+        video.autoplay = autoplay;
+        video.playsInline = true;
+        video.controls = true;
+        video.style.width = '100%';
+        video.style.height = '100%';
+        video.style.objectFit = 'cover';
+        video.style.display = 'block';
+        elCutsceneStage.appendChild(video);
 
-      const vid = document.getElementById('cutsceneVideo');
-      if (vid) {
-        vid.addEventListener('ended', () => {
+        video.addEventListener('ended', () => {
           if (pausedForCutscene) resumeAfterCutscene();
         }, { once: true });
-        vid.play().catch(() => {});
+
+        if (autoplay) {
+          video.play().catch(() => {
+            // Autoplay dengan suara bisa diblok browser; kontrol video tetap tersedia.
+          });
+        }
+      } else {
+        const blank = document.createElement('div');
+        blank.className = 'blank-cutscene';
+        elCutsceneStage.appendChild(blank);
+
+        const clickLayer = document.createElement('button');
+        clickLayer.type = 'button';
+        clickLayer.className = 'stage-click';
+        clickLayer.setAttribute('aria-label', 'Tutup cutscene');
+        clickLayer.addEventListener('click', () => {
+          if (pausedForCutscene) resumeAfterCutscene();
+        });
+        elCutsceneStage.appendChild(clickLayer);
       }
+
+      elCutsceneOverlay.classList.add('show');
+      elCutsceneOverlay.setAttribute('aria-hidden', 'false');
     }
 
     function finishMatch(result) {
       hasEnded = true;
+      phase = 'ended';
       clearTimer();
 
       if (mode === 'human') {
         if (result === BOT_X) {
           score.x += 1;
           setStatus('Kamu menang!');
-          updateMemoryForSymbol(BOT_O, 'loss');
         } else if (result === BOT_O) {
           score.o += 1;
           setStatus('Bot menang!');
-          updateMemoryForSymbol(BOT_O, 'win');
         } else {
           score.draws += 1;
           setStatus('Seri!');
-          updateMemoryForSymbol(BOT_O, 'draw');
         }
+
+        updateMemoryForSymbol(BOT_O, result === BOT_O ? 'win' : result === BOT_X ? 'loss' : 'draw');
         updateScoreUI();
         renderBoard();
         return;
@@ -634,7 +680,7 @@ input[type="range"] { width: 170px; }
         updateMemoryForSymbol(BOT_O, 'draw');
         updateScoreUI();
         renderBoard();
-        endRoundAndMaybeAutoNext();
+        endRoundAndMaybeAutoNext(roundToken);
         return;
       }
 
@@ -657,19 +703,21 @@ input[type="range"] { width: 170px; }
 
       if (!cutsceneShown && (streak.x >= 20 || streak.o >= 20)) {
         cutsceneShown = true;
-        showCutscene(result);
+        showCutscene({ winnerSymbol: result, autoplay: true, testMode: false });
         return;
       }
 
-      endRoundAndMaybeAutoNext();
+      endRoundAndMaybeAutoNext(roundToken);
     }
 
     function openTestCutscene() {
       if (!mode) mode = 'bot';
       cutsceneShown = false;
-      resetBoardOnly();
+      startRound({ preserveScore: true, autoStartBot: false });
       streak.x = 20;
-      showCutscene(BOT_X);
+      score.x = Math.max(score.x, 20);
+      updateScoreUI();
+      showCutscene({ winnerSymbol: BOT_X, autoplay: false, testMode: true });
     }
 
     elSpeed.addEventListener('input', () => {
@@ -679,35 +727,30 @@ input[type="range"] { width: 170px; }
 
     elHumanModeBtn.addEventListener('click', () => {
       mode = 'human';
-      resetBoardOnly();
+      startRound({ preserveScore: true, autoStartBot: false });
     });
 
     elBotModeBtn.addEventListener('click', () => {
       mode = 'bot';
-      resetBoardOnly();
-      scheduleBotStep(250);
+      startRound({ preserveScore: true, autoStartBot: true });
     });
 
     elMainLagiBtn.addEventListener('click', () => {
       if (!mode) return;
-      resetBoardOnly();
+      startRound({ preserveScore: true, autoStartBot: mode === 'bot' });
     });
 
     elTestCutsceneBtn.addEventListener('click', openTestCutscene);
 
     elResetScoreBtn.addEventListener('click', () => {
       resetScoreOnly();
-      if (mode) resetBoardOnly();
+      if (mode) startRound({ preserveScore: false, autoStartBot: mode === 'bot' });
     });
 
     elClearMemoryBtn.addEventListener('click', () => {
       clearAllLearning();
       resetScoreOnly();
-      if (mode) resetBoardOnly();
-    });
-
-    elCutsceneTapzone.addEventListener('click', () => {
-      if (pausedForCutscene) resumeAfterCutscene();
+      if (mode) startRound({ preserveScore: true, autoStartBot: mode === 'bot' });
     });
 
     document.addEventListener('keydown', (e) => {
