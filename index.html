@@ -262,6 +262,8 @@ input[type="range"] { width: 170px; }
   </div>  <div class="overlay" id="cutsceneOverlay" aria-hidden="true">
     <div class="cutscene-stage" id="cutsceneStage"></div>
   </div>  <script>
+    const penaltyBoost = outcome === 'loss' ? 1.5 : 1;
+    const reward = outcome === 'win' ? 1 : outcome === 'loss' ? -1 * penaltyBoost : 0.2;
     const EMPTY = '';
     const BOT_X = 'X';
     const BOT_O = 'O';
@@ -526,7 +528,22 @@ input[type="range"] { width: 170px; }
         scheduleBotStep(250, roundToken);
       }
     }
+   function isForkMove(board, move, symbol) {
+  if (board[move] !== EMPTY) return false;
 
+  const temp = board.slice();
+  temp[move] = symbol;
+
+  let count = 0;
+
+  for (let i = 0; i < 9; i++) {
+    if (temp[i] === EMPTY && wouldWin(temp, symbol, i)) {
+      count++;
+    }
+  }
+
+  return count >= 2;
+    }
     function resetScoreOnly() {
       score = { x: 0, o: 0, draws: 0 };
       winStreak = { x: 0, o: 0 };
@@ -537,7 +554,64 @@ input[type="range"] { width: 170px; }
       else if (mode === 'bot') setStatus('Skor direset. Bot X memulai otomatis.');
       else setStatus('Skor direset.');
     }
+    function chooseMove(symbol, currentBoard) {
+  const mem = symbol === BOT_X ? memoryX : memoryO;
+  const key = boardKey(currentBoard);
+  const qTable = mem.q[key] || {};
+  const avail = availableMoves(currentBoard);
 
+  if (!avail.length) return null;
+
+  const opponent = symbol === BOT_X ? BOT_O : BOT_X;
+
+  // ===== RULE ENGINE =====
+
+  // 1. MENANG
+  for (const m of avail) {
+    if (wouldWin(currentBoard, symbol, m)) return m;
+  }
+
+  // 2. BLOCK
+  for (const m of avail) {
+    if (wouldWin(currentBoard, opponent, m)) return m;
+  }
+
+  // 3. FORK
+  for (const m of avail) {
+    if (isForkMove(currentBoard, m, symbol)) return m;
+  }
+
+  // 4. BLOCK FORK
+  for (const m of avail) {
+    if (isForkMove(currentBoard, m, opponent)) return m;
+  }
+
+  // 5. CENTER
+  if (avail.includes(4)) return 4;
+
+  // ===== LEARNING LAYER =====
+
+  const epsilon = mode === 'bot'
+    ? Math.max(0.05, 0.25 - mem.games * 0.002)
+    : 0.08;
+
+  if (Math.random() < epsilon) {
+    return avail[Math.floor(Math.random() * avail.length)];
+  }
+
+  let bestMove = avail[0];
+  let bestValue = -Infinity;
+
+  for (const move of avail) {
+    const value = qTable[move] ?? 0;
+    if (value > bestValue) {
+      bestValue = value;
+      bestMove = move;
+    }
+  }
+
+  return bestMove;
+    }
     function scheduleBotStep(delay, token) {
       clearTimer();
       if (pausedForCutscene || mode === null || hasEnded) return;
