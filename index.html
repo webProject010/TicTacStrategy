@@ -406,8 +406,11 @@ input[type="range"] { width: 170px; }
             return merged;
           };
 
-          memoryX = mergeMemory(memoryX, importedData.memoryX);
-          memoryO = mergeMemory(memoryO, importedData.memoryO);
+          const mergedX = mergeMemory(memoryX, importedData.memoryX);
+          const mergedO = mergeMemory(memoryO, importedData.memoryO);
+
+          Object.assign(memoryX, mergedX);
+          Object.assign(memoryO, mergedO);
 
           saveMemory(STORAGE_KEY_X, memoryX);
           saveMemory(STORAGE_KEY_O, memoryO);
