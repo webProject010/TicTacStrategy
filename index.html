@@ -255,8 +255,14 @@ input[type="range"] { width: 170px; }
   <button class="btn-danger" id="clearMemoryBtn">Hapus memori bot</button>
 </div>
 
+<div class="row">
+  <button class="btn-soft" id="exportBotBtn">📥 Export Bot Data</button>
+  <button class="btn-soft" id="importBotBtn">📤 Import Bot Data</button>
+  <input type="file" id="importFileInput" accept=".ttstr" style="display: none;" />
+</div>
+
 <div class="hint">
-  Main lagi hanya mengulang papan. Reset skor menghapus poin dan membuka lagi cutscene streak. Hapus memori bot menghapus pembelajaran yang tersimpan di browser.
+  Main lagi hanya mengulang papan. Reset skor menghapus poin dan membuka lagi cutscene streak. Hapus memori bot menghapus pembelajaran yang tersimpan di browser. Export untuk backup bot yang sudah terlatih, Import untuk restore atau merge pembelajaran bot yang lebih kuat!
 </div>
 
   </div>  <div class="overlay" id="cutsceneOverlay" aria-hidden="true">
@@ -337,6 +343,88 @@ input[type="range"] { width: 170px; }
       histories.X = [];
       histories.O = [];
     }
+
+    function exportBotData() {
+      const exportData = {
+        version: 'v7',
+        exportDate: new Date().toISOString(),
+        memoryX: memoryX,
+        memoryO: memoryO,
+        stats: {
+          totalScore: score,
+          winStreaks: winStreak,
+          lossStreaks: lossStreak
+        }
+      };
+
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bot-data-${new Date().getTime()}.ttstr`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setStatus(`✅ Bot data exported! File: ${link.download}`);
+    }
+
+    function importBotData(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const importedData = JSON.parse(e.target.result);
+
+          if (!importedData.memoryX || !importedData.memoryO) {
+            setStatus('❌ Invalid bot data file!');
+            return;
+          }
+
+          const mergeMemory = (existing, imported) => {
+            const merged = { ...existing };
+            merged.games = (merged.games || 0) + (imported.games || 0);
+            merged.wins = (merged.wins || 0) + (imported.wins || 0);
+            merged.losses = (merged.losses || 0) + (imported.losses || 0);
+            merged.draws = (merged.draws || 0) + (imported.draws || 0);
+
+            merged.q = { ...merged.q };
+            for (const state in imported.q) {
+              if (!merged.q[state]) {
+                merged.q[state] = { ...imported.q[state] };
+              } else {
+                for (const action in imported.q[state]) {
+                  merged.q[state][action] = Math.max(
+                    merged.q[state][action] || 0,
+                    imported.q[state][action]
+                  );
+                }
+              }
+            }
+
+            return merged;
+          };
+
+          memoryX = mergeMemory(memoryX, importedData.memoryX);
+          memoryO = mergeMemory(memoryO, importedData.memoryO);
+
+          saveMemory(STORAGE_KEY_X, memoryX);
+          saveMemory(STORAGE_KEY_O, memoryO);
+
+          const statsText = `📊 Bot X: ${importedData.memoryX.games} games (${importedData.memoryX.wins}W/${importedData.memoryX.losses}L)
+📊 Bot O: ${importedData.memoryO.games} games (${importedData.memoryO.wins}W/${importedData.memoryO.losses}L)`;
+
+          setStatus(`✅ Bot data imported & merged successfully!\n${statsText}`);
+        } catch (error) {
+          setStatus(`❌ Error importing bot data: ${error.message}`);
+        }
+      };
+
+      reader.readAsText(file);
+      document.getElementById('importFileInput').value = '';
+    }
+
 
     function clearTimer() {
       if (botTimer !== null) {
@@ -1031,6 +1119,22 @@ input[type="range"] { width: 170px; }
       clearAllLearning();
       resetScoreOnly();
       if (mode) startRound({ preserveScore: true, autoStartBot: mode === 'bot' });
+    });
+
+    const elExportBotBtn = document.getElementById('exportBotBtn');
+    const elImportBotBtn = document.getElementById('importBotBtn');
+    const elImportFileInput = document.getElementById('importFileInput');
+
+    elExportBotBtn.addEventListener('click', exportBotData);
+
+    elImportBotBtn.addEventListener('click', () => {
+      elImportFileInput.click();
+    });
+
+    elImportFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        importBotData(e.target.files[0]);
+      }
     });
 
     document.addEventListener('keydown', (e) => {
