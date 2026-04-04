@@ -220,13 +220,108 @@ input[type="range"] { width: 170px; }
   input[type="range"] { width: 130px; }
 }
 
+button[title] {
+  position: relative;
+}
+
+button[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 41, 59, 0.95);
+  color: #e5e7eb;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  z-index: 100;
+  pointer-events: none;
+}
+
+.help-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.help-modal.show {
+  display: flex;
+}
+
+.help-content {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 30px;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  margin: 20px;
+  color: var(--text);
+}
+
+.help-content h2 {
+  margin-top: 20px;
+  margin-bottom: 12px;
+  color: #38bdf8;
+  font-size: 1.3rem;
+}
+
+.help-content h3 {
+  margin-top: 15px;
+  margin-bottom: 8px;
+  color: #fda4af;
+  font-size: 1.1rem;
+}
+
+.help-content p, .help-content li {
+  margin: 8px 0;
+  line-height: 1.6;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.help-content ul {
+  margin-left: 20px;
+  margin-top: 8px;
+}
+
+.help-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: var(--danger);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
+}
+
+.help-close:hover {
+  opacity: 0.8;
+}
+
   </style>
 </head>
 <body>
   <div class="app">
     <div class="title">
-      <h1>Tic Tac Toe</h1>
-      <p>Mode Human vs Bot memakai satu bot yang belajar. Mode Bot vs Bot memakai dua bot yang masing-masing belajar sendiri.</p>
+      <h1>Tic Tac Strategy</h1>
     </div><div class="topbar">
   <div class="row">
     <button class="btn-primary" id="humanModeBtn">Human vs Bot</button>
@@ -256,18 +351,80 @@ input[type="range"] { width: 170px; }
 </div>
 
 <div class="row">
-  <button class="btn-soft" id="exportBotBtn">📥 Export Bot Data</button>
-  <button class="btn-soft" id="importBotBtn">📤 Import Bot Data</button>
-  <input type="file" id="importFileInput" accept=".ttstr,.json,text/plain" style="display: none;" />
+  <button class="btn-soft" onclick="openSettings();" title="Buka pengaturan game">⚙️ Settings</button>
+  <button class="btn-soft" onclick="openHelp();" title="Baca panduan lengkap">? Help</button>
 </div>
 
-<div class="hint">
-  Main lagi hanya mengulang papan. Reset skor menghapus poin dan membuka lagi cutscene streak. Hapus memori bot menghapus pembelajaran yang tersimpan di browser. Export untuk backup bot yang sudah terlatih, Import untuk restore atau merge pembelajaran bot yang lebih kuat!
-</div>
-
-  </div>  <div class="overlay" id="cutsceneOverlay" aria-hidden="true">
+<div class="overlay" id="cutsceneOverlay" aria-hidden="true">
     <div class="cutscene-stage" id="cutsceneStage"></div>
-  </div>  <script>
+  </div>
+
+  <!-- Settings Popup -->
+  <div id="settingsPopup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 450px; background: var(--card); border: 2px solid #38bdf8; border-radius: 16px; padding: 20px; z-index: 9999; box-shadow: 0 10px 40px rgba(0,0,0,0.6); font-family: inherit;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2 style="margin: 0; color: var(--text); font-size: 1.3rem;">⚙️ Settings</h2>
+      <button onclick="document.getElementById('settingsPopup').style.display='none'; document.getElementById('popupBg').style.display='none';" style="background: none; border: none; font-size: 24px; color: var(--text); cursor: pointer; padding: 0;">×</button>
+    </div>
+    <div style="max-height: 60vh; overflow-y: auto;">
+      <div style="margin-bottom: 16px;">
+        <div style="color: var(--text); font-weight: bold; margin-bottom: 8px;">🤖 Bot Personality</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <button onclick="setPersonality('trained'); document.getElementById('settingsPopup').style.display='none'; document.getElementById('popupBg').style.display='none';" class="btn-soft">📚 Trained</button>
+          <button onclick="setPersonality('brilliant-smart'); document.getElementById('settingsPopup').style.display='none'; document.getElementById('popupBg').style.display='none';" class="btn-soft">🧠 Smart</button>
+          <button onclick="setPersonality('brilliant-optimized'); document.getElementById('settingsPopup').style.display='none'; document.getElementById('popupBg').style.display='none';" class="btn-soft">⚡ Optimized</button>
+          <button onclick="setPersonality('uncountered'); document.getElementById('settingsPopup').style.display='none'; document.getElementById('popupBg').style.display='none';" class="btn-soft">😤 Uncountered</button>
+          <button onclick="setPersonality('fork-maker'); document.getElementById('settingsPopup').style.display='none'; document.getElementById('popupBg').style.display='none';" class="btn-soft">🍴 Fork</button>
+          <button onclick="setPersonality('dumb'); document.getElementById('settingsPopup').style.display='none'; document.getElementById('popupBg').style.display='none';" class="btn-soft">🤪 Dumb</button>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 16px; border-top: 1px solid var(--line); padding-top: 12px;">
+        <div style="color: var(--text); font-weight: bold; margin-bottom: 10px;">🎓 Trainer Mode</div>
+        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+          <input type="checkbox" id="settingTrainerCheck" onchange="toggleTrainer(this.checked)" style="width: 18px; height: 18px; cursor: pointer;" />
+          <span style="color: var(--text);">Enable Trainer</span>
+        </label>
+      </div>
+
+      <div style="margin-bottom: 16px; border-top: 1px solid var(--line); padding-top: 12px;">
+        <div style="color: var(--text); font-weight: bold; margin-bottom: 10px;">⚡ Bot Speed</div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <input type="range" id="settingSpeed" min="100" max="1000" step="50" value="500" oninput="document.getElementById('settingSpeedVal').textContent = this.value; botSpeed = Number(this.value);" style="flex: 1;" />
+          <span style="color: var(--text); min-width: 50px; text-align: right;"><span id="settingSpeedVal">500</span>ms</span>
+        </div>
+      </div>
+
+      <div style="border-top: 1px solid var(--line); padding-top: 12px;">
+        <div style="color: var(--text); font-weight: bold; margin-bottom: 10px;">💾 Bot Data</div>
+        <div style="display: flex; gap: 10px;">
+          <button onclick="exportBotData(); document.getElementById('settingsPopup').style.display='none'; document.getElementById('popupBg').style.display='none';" class="btn-soft" style="flex: 1;">📥 Export</button>
+          <button onclick="document.getElementById('popupImportFile').click();" class="btn-soft" style="flex: 1;">📤 Import</button>
+        </div>
+        <input type="file" id="popupImportFile" accept=".ttstr,.json,text/plain" onchange="if(this.files[0]) importBotData(this.files[0]); document.getElementById('settingsPopup').style.display='none'; document.getElementById('popupBg').style.display='none';" style="display: none;" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Help Popup -->
+  <div id="helpPopup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 450px; background: var(--card); border: 2px solid #fda4af; border-radius: 16px; padding: 20px; z-index: 9999; box-shadow: 0 10px 40px rgba(0,0,0,0.6); font-family: inherit; color: var(--text);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2 style="margin: 0; color: var(--text); font-size: 1.3rem;">📖 Help</h2>
+      <button onclick="document.getElementById('helpPopup').style.display='none'; document.getElementById('popupBg').style.display='none';" style="background: none; border: none; font-size: 24px; color: var(--text); cursor: pointer; padding: 0;">×</button>
+    </div>
+    <div style="max-height: 60vh; overflow-y: auto; font-size: 0.9rem;">
+      <p><strong>🎮 Play:</strong> Choose Human vs Bot or Bot vs Bot mode</p>
+      <p><strong>🤖 Personalities:</strong> Pick different bot difficulty levels</p>
+      <p><strong>🎓 Trainer:</strong> Play both X and O to teach the bot</p>
+      <p><strong>⚡ Speed:</strong> Control bot move speed in Bot vs Bot</p>
+      <p><strong>💾 Export/Import:</strong> Save and load bot training data</p>
+      <p style="margin-top: 12px; color: var(--muted); font-size: 0.85rem;">The bot learns from every game. Train it and watch it improve! 🚀</p>
+    </div>
+  </div>
+
+  <!-- Background overlay -->
+  <div id="popupBg" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9998; cursor: pointer;" onclick="document.getElementById('settingsPopup').style.display='none'; document.getElementById('helpPopup').style.display='none'; this.style.display='none';"></div>
+
+  <script>
     const EMPTY = '';
     const BOT_X = 'X';
     const BOT_O = 'O';
@@ -281,12 +438,13 @@ input[type="range"] { width: 170px; }
       [0, 4, 8], [2, 4, 6]
     ];
 
+    let botPersonality = 'trained'; // Default personality - uses imported data
+    let trainerMode = false; // Trainer mode for active learning
+
     const elBoard = document.getElementById('board');
     const elStatus = document.getElementById('status');
     const elScore = document.getElementById('score');
     const elStreaks = document.getElementById('streaks');
-    const elSpeed = document.getElementById('speedRange');
-    const elSpeedLabel = document.getElementById('speedLabel');
     const elHumanModeBtn = document.getElementById('humanModeBtn');
     const elBotModeBtn = document.getElementById('botModeBtn');
     const elMainLagiBtn = document.getElementById('mainLagiBtn');
@@ -304,7 +462,7 @@ input[type="range"] { width: 170px; }
     let botTimer = null;
     let pausedForCutscene = false;
     let cutsceneShown = false;
-    let botSpeed = Number(elSpeed.value);
+    let botSpeed = 500; // Default speed
 
     let score = { x: 0, o: 0, draws: 0 };
     let winStreak = { x: 0, o: 0 };
@@ -419,6 +577,9 @@ input[type="range"] { width: 170px; }
 📊 Bot O: ${importedData.memoryO.games} games (${importedData.memoryO.wins}W/${importedData.memoryO.losses}L)`;
 
           setStatus(`✅ Bot data imported & merged successfully!\n${statsText}`);
+          
+          // Auto-switch to trained personality
+          setPersonality('trained');
         } catch (error) {
           setStatus(`❌ Error importing bot data: ${error.message}`);
         }
@@ -612,7 +773,7 @@ input[type="range"] { width: 170px; }
       histories.O = [];
       pausedForCutscene = false;
       hasEnded = false;
-      phase = mode === 'human' ? 'human' : (mode === 'bot' ? 'bot' : 'idle');
+      phase = mode === 'human' ? 'human' : (mode === 'bot' ? 'bot' : (mode === 'trainer' ? 'human' : 'idle'));
       turn = BOT_X;
       hideCutscene();
 
@@ -622,7 +783,9 @@ input[type="range"] { width: 170px; }
         lossStreak = { x: 0, o: 0 };
       }
 
-      if (mode === 'human') {
+      if (mode === 'trainer') {
+        setStatus('📚 Trainer: Kamu main X, lalu main O untuk ajarkan bot! 🎓');
+      } else if (mode === 'human') {
         setStatus('Giliran kamu. Kamu X, bot O.');
       } else if (mode === 'bot') {
         setStatus('Bot X memulai otomatis.');
@@ -789,77 +952,261 @@ input[type="range"] { width: 170px; }
       return score;
     }
 
+    function chooseMovePersonality(symbol, currentBoard) {
+      const avail = availableMoves(currentBoard);
+      if (!avail.length) return null;
+      const opponent = symbol === BOT_X ? BOT_O : BOT_X;
+
+      if (botPersonality === 'dumb') {
+        return avail[Math.floor(Math.random() * avail.length)];
+      }
+
+      if (botPersonality === 'fork-maker') {
+        for (const m of avail) {
+          if (wouldWin(currentBoard, symbol, m)) return m;
+        }
+        for (const m of avail) {
+          const tempBoard = currentBoard.slice();
+          tempBoard[m] = symbol;
+          if (isForkMove(tempBoard, m, symbol)) return m;
+        }
+        return avail[Math.floor(Math.random() * avail.length)];
+      }
+
+      if (botPersonality === 'uncountered') {
+        for (const m of avail) {
+          if (wouldWin(currentBoard, symbol, m)) return m;
+        }
+        for (const m of avail) {
+          const tempBoard = currentBoard.slice();
+          tempBoard[m] = symbol;
+          if (isForkMove(tempBoard, m, symbol)) return m;
+        }
+        if (avail.includes(4)) return 4;
+        return avail[Math.floor(Math.random() * avail.length)];
+      }
+
+      if (botPersonality === 'trained') {
+        return chooseMoveTrained(symbol, currentBoard);
+      }
+
+      if (botPersonality === 'brilliant-smart') {
+        return chooseMoveBrilliantSmart(symbol, currentBoard);
+      }
+
+      if (botPersonality === 'brilliant-optimized') {
+        return chooseMoveBrilliantOptimized(symbol, currentBoard);
+      }
+
+      return avail[Math.floor(Math.random() * avail.length)];
+    }
+
+    function chooseMoveTrained(symbol, currentBoard) {
+      const mem = symbol === BOT_X ? memoryX : memoryO;
+      const key = boardKey(currentBoard);
+      const qTable = mem.q[key] || {};
+      const avail = availableMoves(currentBoard);
+      if (!avail.length) return null;
+      const opponent = symbol === BOT_X ? BOT_O : BOT_X;
+
+      // Critical: Win immediately
+      for (const m of avail) {
+        if (wouldWin(currentBoard, symbol, m)) return m;
+      }
+
+      // Critical: Block opponent winning
+      const opponentWinMoves = avail.filter(m => wouldWin(currentBoard, opponent, m));
+      if (opponentWinMoves.length > 0) {
+        return opponentWinMoves[0];
+      }
+
+      // In trainer mode, create learning scenarios instead of just winning
+      if (trainerMode) {
+        // Try to create a fork opportunity for opponent to learn blocking
+        for (const m of avail) {
+          const tempBoard = currentBoard.slice();
+          tempBoard[m] = symbol;
+          if (isForkMove(tempBoard, m, symbol)) {
+            // Let opponent learn to block this fork
+            return m;
+          }
+        }
+
+        // Try to set up opposite corners for pattern learning
+        for (const m of avail) {
+          if (isOppositeCorner(currentBoard, m, opponent)) {
+            return m;
+          }
+        }
+
+        // Control center to teach positioning
+        if (avail.includes(4)) return 4;
+
+        // Otherwise, make reasonable but not optimal moves
+        let bestMove = avail[0];
+        let bestQValue = -Infinity;
+        for (const move of avail) {
+          const qValue = qTable[move] ?? 0;
+          if (qValue > bestQValue) {
+            bestQValue = qValue;
+            bestMove = move;
+          }
+        }
+        return bestMove;
+      }
+
+      // Normal trained mode (not trainer)
+      // Prioritize LEARNED moves heavily
+      let bestMove = avail[0];
+      let bestQValue = -Infinity;
+      let hasLearnedMove = false;
+
+      for (const move of avail) {
+        const qValue = qTable[move] ?? 0;
+        if (qValue > 0.1) hasLearnedMove = true;
+        
+        if (qValue > bestQValue) {
+          bestQValue = qValue;
+          bestMove = move;
+        }
+      }
+
+      // If we have learned good moves, trust them
+      if (hasLearnedMove && bestQValue > 0.1) {
+        return bestMove;
+      }
+
+      // Otherwise, fall back to strategic rules
+      for (const m of avail) {
+        if (isForkMove(currentBoard, m, symbol)) return m;
+      }
+      for (const m of avail) {
+        if (isForkMove(currentBoard, m, opponent)) return m;
+      }
+      if (avail.includes(4)) return 4;
+      for (const m of avail) {
+        if (isOppositeCorner(currentBoard, m, opponent)) return m;
+      }
+
+      return bestMove;
+    }
+
+    function chooseMoveBrilliantSmart(symbol, currentBoard) {
+      const mem = symbol === BOT_X ? memoryX : memoryO;
+      const key = boardKey(currentBoard);
+      const qTable = mem.q[key] || {};
+      const avail = availableMoves(currentBoard);
+      if (!avail.length) return null;
+      const opponent = symbol === BOT_X ? BOT_O : BOT_X;
+
+      // CRITICAL: Win immediately
+      for (const m of avail) {
+        if (wouldWin(currentBoard, symbol, m)) return m;
+      }
+
+      // CRITICAL: Block ALL opponent winning threats (most important!)
+      const opponentWinMoves = avail.filter(m => wouldWin(currentBoard, opponent, m));
+      if (opponentWinMoves.length > 0) {
+        if (opponentWinMoves.length > 1) return opponentWinMoves[0];
+        return opponentWinMoves[0];
+      }
+
+      for (const m of avail) {
+        if (isForkMove(currentBoard, m, symbol)) return m;
+      }
+      for (const m of avail) {
+        if (isForkMove(currentBoard, m, opponent)) return m;
+      }
+      for (const m of avail) {
+        if (canCreateTrapFork(currentBoard, m, symbol)) return m;
+      }
+      if (avail.includes(4)) return 4;
+      for (const m of avail) {
+        if (isOppositeCorner(currentBoard, m, opponent)) return m;
+      }
+
+      const epsilon = mode === 'bot' ? Math.max(0.05, 0.25 - mem.games * 0.002) : 0.08;
+      if (Math.random() < epsilon) {
+        return avail[Math.floor(Math.random() * avail.length)];
+      }
+
+      let bestMove = avail[0];
+      let bestScore = -Infinity;
+      for (const move of avail) {
+        let moveScore = scoreMove(currentBoard, move, symbol);
+        const qValue = qTable[move] ?? 0;
+        moveScore += qValue * 2;
+        if (moveScore > bestScore) {
+          bestScore = moveScore;
+          bestMove = move;
+        }
+      }
+      return bestMove;
+    }
+
+    function chooseMoveBrilliantOptimized(symbol, currentBoard) {
+      const mem = symbol === BOT_X ? memoryX : memoryO;
+      const key = boardKey(currentBoard);
+      const qTable = mem.q[key] || {};
+      const avail = availableMoves(currentBoard);
+      if (!avail.length) return null;
+      const opponent = symbol === BOT_X ? BOT_O : BOT_X;
+
+      // CRITICAL: Win immediately
+      for (const m of avail) {
+        if (wouldWin(currentBoard, symbol, m)) return m;
+      }
+
+      // CRITICAL: Block ALL opponent winning threats (most important!)
+      const opponentWinMoves = avail.filter(m => wouldWin(currentBoard, opponent, m));
+      if (opponentWinMoves.length > 0) {
+        if (opponentWinMoves.length > 1) return opponentWinMoves[0];
+        return opponentWinMoves[0];
+      }
+
+      for (const m of avail) {
+        if (isForkMove(currentBoard, m, symbol)) return m;
+      }
+      for (const m of avail) {
+        if (isForkMove(currentBoard, m, opponent)) return m;
+      }
+      for (const m of avail) {
+        if (canCreateTrapFork(currentBoard, m, symbol)) return m;
+      }
+      if (avail.includes(4)) return 4;
+      for (const m of avail) {
+        if (isOppositeCorner(currentBoard, m, opponent)) return m;
+      }
+
+      const epsilon = mode === 'bot' ? Math.max(0.02, 0.15 - mem.games * 0.003) : 0.05;
+      if (Math.random() < epsilon) {
+        return avail[Math.floor(Math.random() * avail.length)];
+      }
+
+      let bestMove = avail[0];
+      let bestScore = -Infinity;
+      for (const move of avail) {
+        const tempBoard = currentBoard.slice();
+        tempBoard[move] = symbol;
+        let moveScore = scoreMove(currentBoard, move, symbol);
+        const qValue = qTable[move] ?? 0;
+        moveScore += qValue * 3;
+        
+        const futureEval = minimax(tempBoard, 0, symbol, false);
+        moveScore += futureEval * 0.8;
+
+        if (moveScore > bestScore) {
+          bestScore = moveScore;
+          bestMove = move;
+        }
+      }
+      return bestMove;
+    }
+
+
 
     function chooseMove(symbol, currentBoard) {
-  const mem = symbol === BOT_X ? memoryX : memoryO;
-  const key = boardKey(currentBoard);
-  const qTable = mem.q[key] || {};
-  const avail = availableMoves(currentBoard);
-
-  if (!avail.length) return null;
-
-  const opponent = symbol === BOT_X ? BOT_O : BOT_X;
-
-  // ===== RULE ENGINE =====
-
-  // 1. MENANG
-  for (const m of avail) {
-    if (wouldWin(currentBoard, symbol, m)) return m;
-  }
-
-  // 2. BLOCK
-  for (const m of avail) {
-    if (wouldWin(currentBoard, opponent, m)) return m;
-  }
-
-  // 3. FORK
-  for (const m of avail) {
-    if (isForkMove(currentBoard, m, symbol)) return m;
-  }
-
-  // 4. BLOCK FORK
-  for (const m of avail) {
-    if (isForkMove(currentBoard, m, opponent)) return m;
-  }
-
-  // 5. TRAP FORK - Create a position where opponent can't prevent a future fork
-  for (const m of avail) {
-    if (canCreateTrapFork(currentBoard, m, symbol)) return m;
-  }
-
-  // 6. CENTER
-  if (avail.includes(4)) return 4;
-
-  // 7. OPPOSITE CORNER STRATEGY
-  for (const m of avail) {
-    if (isOppositeCorner(currentBoard, m, opponent)) return m;
-  }
-
-  // ===== SMARTER EVALUATION LAYER =====
-
-  const epsilon = mode === 'bot'
-    ? Math.max(0.05, 0.25 - mem.games * 0.002)
-    : 0.08;
-
-  if (Math.random() < epsilon) {
-    return avail[Math.floor(Math.random() * avail.length)];
-  }
-
-  let bestMove = avail[0];
-  let bestScore = -Infinity;
-
-  for (const move of avail) {
-    let moveScore = scoreMove(currentBoard, move, symbol);
-    const qValue = qTable[move] ?? 0;
-    moveScore += qValue * 2;
-
-    if (moveScore > bestScore) {
-      bestScore = moveScore;
-      bestMove = move;
-    }
-  }
-
-  return bestMove;
+      return chooseMovePersonality(symbol, currentBoard);
     }
     function scheduleBotStep(delay, token) {
       clearTimer();
@@ -868,6 +1215,32 @@ input[type="range"] { width: 170px; }
     }
 
     function handleHumanClick(index) {
+      // Trainer mode: user plays both X and O
+      if (trainerMode && mode === 'trainer') {
+        if (board[index] !== EMPTY) return;
+        if (pausedForCutscene || hasEnded) return;
+        
+        // Record the move in history BEFORE making it
+        const before = boardKey(board);
+        histories[turn].push({ state: before, action: index });
+        
+        board[index] = turn;
+        renderBoard();
+
+        const winner = checkWinner(board);
+        if (winner) {
+          finishMatch(winner);
+          return;
+        }
+
+        // Alternate turns for user to play both sides
+        turn = turn === BOT_X ? BOT_O : BOT_X;
+        const nextSymbol = turn === BOT_X ? 'X' : 'O';
+        setStatus(`📚 Trainer: Sekarang main ${nextSymbol} untuk ajarkan bot! 🎓`);
+        return;
+      }
+
+      // Normal human vs bot mode
       if (mode !== 'human') return;
       if (phase !== 'human' || pausedForCutscene || hasEnded) return;
       if (board[index] !== EMPTY) return;
@@ -992,6 +1365,26 @@ input[type="range"] { width: 170px; }
       phase = 'ended';
       clearTimer();
 
+      if (mode === 'trainer') {
+        // In trainer mode, both bots learn from the user's game
+        if (result === 'draw') {
+          setStatus('📚 Seri! Bot X dan O belajar dari strategi DRAW-mu! 🎓');
+          updateMemoryForSymbol(BOT_X, 'draw');
+          updateMemoryForSymbol(BOT_O, 'draw');
+        } else if (result === BOT_X) {
+          setStatus('📚 X Menang! Bot X dan O belajar strategi pemenang-mu! 🎓');
+          updateMemoryForSymbol(BOT_X, 'win');
+          updateMemoryForSymbol(BOT_O, 'loss');
+        } else {
+          setStatus('📚 O Menang! Bot X dan O belajar strategi pemenang-mu! 🎓');
+          updateMemoryForSymbol(BOT_X, 'loss');
+          updateMemoryForSymbol(BOT_O, 'win');
+        }
+        updateScoreUI();
+        renderBoard();
+        return;
+      }
+
       if (mode === 'human') {
         if (result === BOT_X) {
           const pts = pointBonusForWin(winStreak.x);
@@ -1091,10 +1484,7 @@ input[type="range"] { width: 170px; }
       showCutscene({ autoplay: false, testMode: true });
     }
 
-    elSpeed.addEventListener('input', () => {
-      botSpeed = Number(elSpeed.value);
-      elSpeedLabel.textContent = String(botSpeed);
-    });
+    // All game listeners are below - organized by modal/feature
 
     elHumanModeBtn.addEventListener('click', () => {
       mode = 'human';
@@ -1140,8 +1530,103 @@ input[type="range"] { width: 170px; }
       }
     });
 
+    const personalityNames = {
+      'trained': '📚 Trained Bot',
+      'dumb': '🤪 Dumb',
+      'fork-maker': '🍴 Fork Maker',
+      'uncountered': '😤 Uncountered',
+      'brilliant-smart': '🧠 Brilliant Smart',
+      'brilliant-optimized': '⚡ Brilliantly Optimized'
+    };
+
+    function setPersonality(newPersonality) {
+      botPersonality = newPersonality;
+      document.getElementById('personalityDisplay').textContent = personalityNames[newPersonality];
+      setStatus(`🤖 Switched to: ${personalityNames[newPersonality]}`);
+      if (mode) startRound({ preserveScore: true, autoStartBot: mode === 'bot' });
+    }
+
+    // Old personality buttons - removed from UI but keep for compatibility
+    const personalityTrainedBtn = document.getElementById('personalityTrainedBtn');
+    const personalityDumbBtn = document.getElementById('personalityDumbBtn');
+    const personalityForkBtn = document.getElementById('personalityForkBtn');
+    const personalityUncounteredBtn = document.getElementById('personalityUncounteredBtn');
+    const personalitySmartBtn = document.getElementById('personalitySmartBtn');
+    const personalityOptimizedBtn = document.getElementById('personalityOptimizedBtn');
+
+    if (personalityTrainedBtn) personalityTrainedBtn.addEventListener('click', () => setPersonality('trained'));
+    if (personalityDumbBtn) personalityDumbBtn.addEventListener('click', () => setPersonality('dumb'));
+    if (personalityForkBtn) personalityForkBtn.addEventListener('click', () => setPersonality('fork-maker'));
+    if (personalityUncounteredBtn) personalityUncounteredBtn.addEventListener('click', () => setPersonality('uncountered'));
+    if (personalitySmartBtn) personalitySmartBtn.addEventListener('click', () => setPersonality('brilliant-smart'));
+    if (personalityOptimizedBtn) personalityOptimizedBtn.addEventListener('click', () => setPersonality('brilliant-optimized'));
+
+    // Old trainer toggle - removed from UI but keep for compatibility
+    const trainerToggleOld = document.getElementById('trainerToggle');
+    if (trainerToggleOld) {
+      trainerToggleOld.addEventListener('change', (e) => {
+        trainerMode = e.target.checked;
+        if (trainerMode) {
+          mode = 'trainer';
+          turn = BOT_X;
+          startRound({ preserveScore: true, autoStartBot: false });
+          setStatus('📚 Trainer Mode: Kamu main X di box manapun untuk ajarkan bot! 🎓');
+        } else {
+          mode = 'human';
+          setStatus('🎓 Trainer Mode OFF. Bot kembali bermain normal.');
+          startRound({ preserveScore: true, autoStartBot: false });
+        }
+      });
+    }
+
+    // Popup open/close functions
+    function openSettings() {
+      document.getElementById('settingsPopup').style.display = 'block';
+      document.getElementById('popupBg').style.display = 'block';
+      const speedVal = document.getElementById('settingSpeed');
+      const trainerCheck = document.getElementById('settingTrainerCheck');
+      if (speedVal) speedVal.value = botSpeed;
+      if (trainerCheck) trainerCheck.checked = trainerMode;
+      if (document.getElementById('settingSpeedVal')) {
+        document.getElementById('settingSpeedVal').textContent = botSpeed;
+      }
+    }
+
+    function openHelp() {
+      document.getElementById('helpPopup').style.display = 'block';
+      document.getElementById('popupBg').style.display = 'block';
+    }
+
+    function toggleTrainer(checked) {
+      trainerMode = checked;
+      if (trainerMode) {
+        mode = 'trainer';
+        turn = BOT_X;
+        startRound({ preserveScore: true, autoStartBot: false });
+        setStatus('📚 Trainer Mode: Kamu main X di box manapun untuk ajarkan bot! 🎓');
+      } else {
+        mode = 'human';
+        setStatus('🎓 Trainer Mode OFF. Bot kembali bermain normal.');
+        startRound({ preserveScore: true, autoStartBot: false });
+      }
+    }
+
+    // Close popups with Escape key
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && pausedForCutscene) resumeAfterCutscene();
+      if (e.key === 'Escape') {
+        const settingsPopup = document.getElementById('settingsPopup');
+        const helpPopup = document.getElementById('helpPopup');
+        const popupBg = document.getElementById('popupBg');
+        if (settingsPopup && settingsPopup.style.display === 'block') {
+          settingsPopup.style.display = 'none';
+          popupBg.style.display = 'none';
+        } else if (helpPopup && helpPopup.style.display === 'block') {
+          helpPopup.style.display = 'none';
+          popupBg.style.display = 'none';
+        } else if (pausedForCutscene) {
+          resumeAfterCutscene();
+        }
+      }
     });
 
     updateScoreUI();
