@@ -144,13 +144,15 @@ input[type="range"] { width: 170px; }
 
 .score {
   display: flex;
-  gap: 10px;
+  gap: 30px;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  color: var(--muted);
-  font-size: 0.95rem;
+  color: var(--text);
+  font-size: 1rem;
   text-align: center;
+  font-weight: 600;
+  margin: 8px 0;
 }
 .score span { color: var(--text); font-weight: 700; }
 
@@ -167,6 +169,12 @@ input[type="range"] { width: 170px; }
   font-size: 0.86rem;
   text-align: center;
   max-width: 68ch;
+}
+
+#adminBtn:hover {
+  background: rgba(255, 107, 107, 0.25);
+  border-color: rgba(255, 107, 107, 0.4);
+  color: rgba(255, 107, 107, 0.7);
 }
 
 .overlay {
@@ -328,31 +336,41 @@ button[title]:hover::after {
     <button class="btn-primary" id="botModeBtn">Bot vs Bot</button>
   </div>
 
-  <div class="speed-control">
-    <label for="speedRange">Kecepatan bot vs bot</label>
-    <strong><span id="speedLabel">500</span> ms</strong>
-    <input type="range" id="speedRange" min="100" max="1000" step="50" value="500" />
-  </div>
-</div>
-
 <div class="board-wrap">
   <div class="board" id="board"></div>
 </div>
 
 <div class="status" id="status">Pilih mode untuk memulai.</div>
-<div class="score" id="score">Poin Kamu: <span>0</span> | Poin Bot: <span>0</span> | Seri: <span>0</span></div>
-<div class="streaks" id="streaks">Win streak: <strong>0</strong> | Loss streak: <strong>0</strong></div>
+<div class="score" id="score" style="font-size: 1.2rem; font-weight: bold; display: flex; gap: 30px; justify-content: center;">
+  <span>You: <span id="scoreHuman">0</span></span>
+  <span>Bot: <span id="scoreBot">0</span></span>
+</div>
+<div class="streaks" id="streaks">X Win: <strong>0</strong> | O Win: <strong>0</strong> | X Loss: <strong>0</strong> | O Loss: <strong>0</strong></div>
 
 <div class="row">
   <button class="btn-soft" id="mainLagiBtn">Main lagi</button>
-  <button class="btn-soft" id="testCutsceneBtn">Test Cutscene</button>
+  <button id="adminBtn" onclick="openAdminPanel();" style="position: fixed; bottom: 20px; right: 20px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255, 107, 107, 0.15); border: 1px solid rgba(255, 107, 107, 0.2); color: rgba(255, 107, 107, 0.4); font-size: 24px; cursor: pointer; z-index: 100; display: flex; align-items: center; justify-content: center; transition: all 0.3s; font-weight: bold;">◆</button>
   <button class="btn-danger" id="resetScoreBtn">Reset skor</button>
   <button class="btn-danger" id="clearMemoryBtn">Hapus memori bot</button>
 </div>
 
 <div class="row">
+  <button class="btn-soft" id="exportBotBtn" title="Save bot's learned data to file">📥 Export Bot Data</button>
+  <button class="btn-soft" id="importBotBtn" title="Load trained bot data from file">📤 Import Bot Data</button>
+  <input type="file" id="importFileInput" accept=".ttstr,.json,text/plain" style="display: none;" />
+</div>
+
+<div class="row">
   <button class="btn-soft" onclick="openSettings();" title="Buka pengaturan game">⚙️ Settings</button>
   <button class="btn-soft" onclick="openHelp();" title="Baca panduan lengkap">? Help</button>
+</div>
+
+<div class="row">
+  <label style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: rgba(15, 23, 42, 0.4); border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.25); cursor: pointer; flex: 1;">
+    <span style="color: var(--text); font-size: 0.9rem;">⚡ Bot Speed:</span>
+    <input type="range" id="speedRange" min="100" max="1000" step="50" value="500" oninput="botSpeed = Number(this.value); document.getElementById('speedLabel').textContent = this.value;" style="flex: 1; cursor: pointer;" />
+    <span id="speedLabel" style="color: var(--text); min-width: 40px; font-size: 0.9rem;">500</span><span style="color: var(--muted); font-size: 0.85rem;">ms</span>
+  </label>
 </div>
 
 <div class="overlay" id="cutsceneOverlay" aria-hidden="true">
@@ -386,21 +404,72 @@ button[title]:hover::after {
         </label>
       </div>
 
-      <div style="margin-bottom: 16px; border-top: 1px solid var(--line); padding-top: 12px;">
+      <div style="border-top: 1px solid var(--line); padding-top: 12px;">
         <div style="color: var(--text); font-weight: bold; margin-bottom: 10px;">⚡ Bot Speed</div>
         <div style="display: flex; align-items: center; gap: 10px;">
           <input type="range" id="settingSpeed" min="100" max="1000" step="50" value="500" oninput="document.getElementById('settingSpeedVal').textContent = this.value; botSpeed = Number(this.value);" style="flex: 1;" />
           <span style="color: var(--text); min-width: 50px; text-align: right;"><span id="settingSpeedVal">500</span>ms</span>
         </div>
+        <p style="color: var(--muted); font-size: 0.85rem; margin: 8px 0 0 0;">For Bot vs Bot mode</p>
       </div>
 
       <div style="border-top: 1px solid var(--line); padding-top: 12px;">
-        <div style="color: var(--text); font-weight: bold; margin-bottom: 10px;">💾 Bot Data</div>
-        <div style="display: flex; gap: 10px;">
-          <button onclick="exportBotData(); document.getElementById('settingsPopup').style.display='none'; document.getElementById('popupBg').style.display='none';" class="btn-soft" style="flex: 1;">📥 Export</button>
-          <button onclick="document.getElementById('popupImportFile').click();" class="btn-soft" style="flex: 1;">📤 Import</button>
+        <div style="color: var(--text); font-weight: bold; margin-bottom: 10px;">😤 Rage Mode</div>
+        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+          <input type="checkbox" id="settingRageModeCheck" onchange="toggleRageMode(this.checked)" style="width: 18px; height: 18px; cursor: pointer;" />
+          <span style="color: var(--text);">Enable Rage Mode</span>
+        </label>
+        <p style="color: var(--muted); font-size: 0.85rem; margin: 8px 0 0 0;">Bot spams moves after losing 30 times in a row (no final move)</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Panel -->
+  <div id="adminPanel" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 450px; background: var(--card); border: 2px solid #ff6b6b; border-radius: 16px; padding: 20px; z-index: 9999; box-shadow: 0 10px 40px rgba(0,0,0,0.6); font-family: inherit;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2 style="margin: 0; color: #ff6b6b; font-size: 1.3rem;">🔐 Admin Panel</h2>
+      <button onclick="document.getElementById('adminPanel').style.display='none'; document.getElementById('popupBg').style.display='none';" style="background: none; border: none; font-size: 24px; color: var(--text); cursor: pointer; padding: 0;">×</button>
+    </div>
+    <div id="adminLoginForm" style="max-height: 60vh; overflow-y: auto;">
+      <div style="margin-bottom: 16px;">
+        <label style="color: var(--text); display: block; margin-bottom: 8px;">Enter Password:</label>
+        <input type="password" id="adminPassword" placeholder="Password" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.25); background: rgba(15, 23, 42, 0.4); color: var(--text);" />
+      </div>
+      <button onclick="checkAdminPassword()" class="btn-soft" style="width: 100%;">Login</button>
+    </div>
+    <div id="adminContent" style="display: none; max-height: 60vh; overflow-y: auto;">
+      <div style="margin-bottom: 16px;">
+        <div style="color: var(--text); font-weight: bold; margin-bottom: 10px;">🎬 Test Cutscene</div>
+        <button onclick="showCutscene({ autoplay: true, testMode: false }); document.getElementById('adminPanel').style.display='none'; document.getElementById('popupBg').style.display='none';" class="btn-soft" style="width: 100%;">▶️ Play Cutscene</button>
+      </div>
+
+      <div style="border-top: 1px solid rgba(148, 163, 184, 0.25); padding-top: 16px;">
+        <div style="color: var(--text); font-weight: bold; margin-bottom: 12px;">📊 Win/Loss Streak Maker</div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div>
+            <label style="color: var(--muted); font-size: 0.85rem; display: block; margin-bottom: 4px;">X Win Streak</label>
+            <input type="number" id="adminXWin" value="0" min="0" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.25); background: rgba(15, 23, 42, 0.4); color: var(--text);" />
+          </div>
+          <div>
+            <label style="color: var(--muted); font-size: 0.85rem; display: block; margin-bottom: 4px;">O Win Streak</label>
+            <input type="number" id="adminOWin" value="0" min="0" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.25); background: rgba(15, 23, 42, 0.4); color: var(--text);" />
+          </div>
         </div>
-        <input type="file" id="popupImportFile" accept=".ttstr,.json,text/plain" onchange="if(this.files[0]) importBotData(this.files[0]); document.getElementById('settingsPopup').style.display='none'; document.getElementById('popupBg').style.display='none';" style="display: none;" />
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div>
+            <label style="color: var(--muted); font-size: 0.85rem; display: block; margin-bottom: 4px;">X Loss Streak</label>
+            <input type="number" id="adminXLoss" value="0" min="0" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.25); background: rgba(15, 23, 42, 0.4); color: var(--text);" />
+          </div>
+          <div>
+            <label style="color: var(--muted); font-size: 0.85rem; display: block; margin-bottom: 4px;">O Loss Streak</label>
+            <input type="number" id="adminOLoss" value="0" min="0" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.25); background: rgba(15, 23, 42, 0.4); color: var(--text);" />
+          </div>
+        </div>
+
+        <button onclick="setAdminStreaks();" class="btn-soft" style="width: 100%;">⚙️ Apply Streaks</button>
+        <p style="color: var(--muted); font-size: 0.8rem; margin: 8px 0 0 0; text-align: center;">Set to 30 on O Loss to trigger Rage Mode!</p>
       </div>
     </div>
   </div>
@@ -440,6 +509,7 @@ button[title]:hover::after {
 
     let botPersonality = 'trained'; // Default personality - uses imported data
     let trainerMode = false; // Trainer mode for active learning
+    let botRageModeEnabled = false; // Rage mode toggle
 
     const elBoard = document.getElementById('board');
     const elStatus = document.getElementById('status');
@@ -448,7 +518,6 @@ button[title]:hover::after {
     const elHumanModeBtn = document.getElementById('humanModeBtn');
     const elBotModeBtn = document.getElementById('botModeBtn');
     const elMainLagiBtn = document.getElementById('mainLagiBtn');
-    const elTestCutsceneBtn = document.getElementById('testCutsceneBtn');
     const elResetScoreBtn = document.getElementById('resetScoreBtn');
     const elClearMemoryBtn = document.getElementById('clearMemoryBtn');
     const elCutsceneOverlay = document.getElementById('cutsceneOverlay');
@@ -720,12 +789,17 @@ button[title]:hover::after {
     }
 
     function updateScoreUI() {
+      const scoreHumanEl = document.getElementById('scoreHuman');
+      const scoreBotEl = document.getElementById('scoreBot');
+      
       if (mode === 'bot') {
-        elScore.innerHTML = `Poin Bot X: <span>${score.x}</span> | Poin Bot O: <span>${score.o}</span> | Seri: <span>${score.draws}</span>`;
+        if (scoreHumanEl) scoreHumanEl.textContent = score.x;
+        if (scoreBotEl) scoreBotEl.textContent = score.o;
       } else {
-        elScore.innerHTML = `Poin Kamu: <span>${score.x}</span> | Poin Bot: <span>${score.o}</span> | Seri: <span>${score.draws}</span>`;
+        if (scoreHumanEl) scoreHumanEl.textContent = score.x;
+        if (scoreBotEl) scoreBotEl.textContent = score.o;
       }
-      elStreaks.innerHTML = `Win streak: <strong>${Math.max(winStreak.x, winStreak.o)}</strong> | Loss streak: <strong>${Math.max(lossStreak.x, lossStreak.o)}</strong>`;
+      elStreaks.innerHTML = `X Win: <strong>${winStreak.x}</strong> | O Win: <strong>${winStreak.o}</strong> | X Loss: <strong>${lossStreak.x}</strong> | O Loss: <strong>${lossStreak.o}</strong>`;
     }
 
     function renderBoard() {
@@ -1268,6 +1342,56 @@ button[title]:hover::after {
       const move = chooseMove(symbol, board);
       if (move === null) return;
 
+      // Rage bait: bot automatically gets angry after 30 losses in a row (Human vs Bot mode only)
+      const isRageTime = botRageModeEnabled && mode === 'human' && symbol === BOT_O && lossStreak.o >= 30 && Math.random() < 0.3;
+      
+      if (isRageTime) {
+        const availMoves = availableMoves(board);
+        if (availMoves.length === 0) {
+          makeBotMove(symbol, move, token);
+          return;
+        }
+
+        let spamCount = 4 + Math.floor(Math.random() * 3); // 4-6 spam moves
+        let spamIndex = 0;
+
+        setStatus(`😤 BOT ANGRY! LOST ${lossStreak.o} TIMES! SPAMMING MOVES! 🤬`);
+
+        const doSpam = () => {
+          // Check if game state is still valid
+          if (token !== roundToken || hasEnded || pausedForCutscene) return;
+          
+          if (spamIndex < spamCount) {
+            const randomMove = availMoves[Math.floor(Math.random() * availMoves.length)];
+            
+            // Place REAL move on board (stays there!)
+            if (board[randomMove] === EMPTY) {
+              board[randomMove] = symbol;
+              renderBoard();
+            }
+            
+            spamIndex++;
+            setTimeout(doSpam, 80);
+          } else {
+            // Rage mode: NO final move, just end turn
+            if (token === roundToken && !hasEnded) {
+              phase = 'human';
+              turn = BOT_X;
+              setStatus('Your turn!');
+              updateScoreUI();
+              renderBoard();
+            }
+          }
+        };
+        
+        doSpam();
+      } else {
+        // Normal move without spam
+        makeBotMove(symbol, move, token);
+      }
+    }
+
+    function makeBotMove(symbol, move, token) {
       const before = boardKey(board);
       board[move] = symbol;
       histories[symbol].push({ state: before, action: move });
@@ -1387,30 +1511,23 @@ button[title]:hover::after {
 
       if (mode === 'human') {
         if (result === BOT_X) {
-          const pts = pointBonusForWin(winStreak.x);
-          const lossPts = pointPenaltyForLoss(lossStreak.o);
-          score.x += pts;
-          score.o -= lossPts;
+          score.x += 1;
           winStreak.x += 1;
           lossStreak.x = 0;
           winStreak.o = 0;
           lossStreak.o += 1;
-          setStatus(`Kamu menang! +${pts} poin, bot -${lossPts} poin. Bot mempelajari strategi kamu! 🧠`);
+          setStatus(`You win! +1 point. Bot learning your strategy! 🧠`);
           updateMemoryForSymbol(BOT_O, 'loss');
           copyWinnerStrategyToLoser(BOT_X, BOT_O);
         } else if (result === BOT_O) {
-          const pts = pointBonusForWin(winStreak.o);
-          const lossPts = pointPenaltyForLoss(lossStreak.x);
-          score.o += pts;
-          score.x -= lossPts;
+          score.o += 1;
           winStreak.o += 1;
           lossStreak.o = 0;
           winStreak.x = 0;
           lossStreak.x += 1;
-          setStatus(`Bot menang! +${pts} poin, kamu -${lossPts} poin.`);
+          setStatus(`Bot wins! +1 point.`);
           updateMemoryForSymbol(BOT_O, 'win');
         } else {
-          score.draws += 1;
           winStreak.x = 0;
           winStreak.o = 0;
           lossStreak.x = 0;
@@ -1439,25 +1556,19 @@ button[title]:hover::after {
       }
 
       if (result === BOT_X) {
-        const pts = pointBonusForWin(winStreak.x);
-        const lossPts = pointPenaltyForLoss(lossStreak.o);
-        score.x += pts;
-        score.o -= lossPts;
+        score.x += 1;
         winStreak.x += 1;
         lossStreak.x = 0;
         winStreak.o = 0;
         lossStreak.o += 1;
-        setStatus(`Bot X menang! +${pts} poin, Bot O -${lossPts} poin.`);
+        setStatus(`Bot X wins! +1 point.`);
       } else {
-        const pts = pointBonusForWin(winStreak.o);
-        const lossPts = pointPenaltyForLoss(lossStreak.x);
-        score.o += pts;
-        score.x -= lossPts;
+        score.o += 1;
         winStreak.o += 1;
         lossStreak.o = 0;
         winStreak.x = 0;
         lossStreak.x += 1;
-        setStatus(`Bot O menang! +${pts} poin, Bot X -${lossPts} poin.`);
+        setStatus(`Bot O wins! +1 point.`);
       }
 
       updateMemoryForSymbol(BOT_X, result === BOT_X ? 'win' : 'loss');
@@ -1501,8 +1612,6 @@ button[title]:hover::after {
       startRound({ preserveScore: true, autoStartBot: mode === 'bot' });
     });
 
-    elTestCutsceneBtn.addEventListener('click', openTestCutscene);
-
     elResetScoreBtn.addEventListener('click', () => {
       resetScoreOnly();
       if (mode) startRound({ preserveScore: false, autoStartBot: mode === 'bot' });
@@ -1517,6 +1626,8 @@ button[title]:hover::after {
     const elExportBotBtn = document.getElementById('exportBotBtn');
     const elImportBotBtn = document.getElementById('importBotBtn');
     const elImportFileInput = document.getElementById('importFileInput');
+    const elSpeedRange = document.getElementById('speedRange');
+    const elSpeedLabel = document.getElementById('speedLabel');
 
     elExportBotBtn.addEventListener('click', exportBotData);
 
@@ -1529,6 +1640,13 @@ button[title]:hover::after {
         importBotData(e.target.files[0]);
       }
     });
+
+    if (elSpeedRange && elSpeedLabel) {
+      elSpeedRange.addEventListener('input', () => {
+        botSpeed = Number(elSpeedRange.value);
+        elSpeedLabel.textContent = botSpeed;
+      });
+    }
 
     const personalityNames = {
       'trained': '📚 Trained Bot',
@@ -1579,23 +1697,68 @@ button[title]:hover::after {
       });
     }
 
+    function setAdminStreaks() {
+      const xWin = Number(document.getElementById('adminXWin').value);
+      const oWin = Number(document.getElementById('adminOWin').value);
+      const xLoss = Number(document.getElementById('adminXLoss').value);
+      const oLoss = Number(document.getElementById('adminOLoss').value);
+
+      winStreak.x = xWin;
+      winStreak.o = oWin;
+      lossStreak.x = xLoss;
+      lossStreak.o = oLoss;
+
+      updateScoreUI();
+      setStatus(`✅ Streaks updated! X Win: ${xWin} | O Win: ${oWin} | X Loss: ${xLoss} | O Loss: ${oLoss}`);
+    }
+
     // Popup open/close functions
     function openSettings() {
       document.getElementById('settingsPopup').style.display = 'block';
       document.getElementById('popupBg').style.display = 'block';
-      const speedVal = document.getElementById('settingSpeed');
+      const settingSpeedInput = document.getElementById('settingSpeed');
       const trainerCheck = document.getElementById('settingTrainerCheck');
-      if (speedVal) speedVal.value = botSpeed;
+      const rageCheck = document.getElementById('settingRageModeCheck');
+      if (settingSpeedInput) settingSpeedInput.value = botSpeed;
       if (trainerCheck) trainerCheck.checked = trainerMode;
+      if (rageCheck) rageCheck.checked = botRageModeEnabled;
       if (document.getElementById('settingSpeedVal')) {
         document.getElementById('settingSpeedVal').textContent = botSpeed;
       }
     }
 
-    function openHelp() {
-      document.getElementById('helpPopup').style.display = 'block';
+    function openAdminPanel() {
+      document.getElementById('adminPanel').style.display = 'block';
       document.getElementById('popupBg').style.display = 'block';
+      document.getElementById('adminLoginForm').style.display = 'block';
+      document.getElementById('adminContent').style.display = 'none';
+      document.getElementById('adminPassword').value = '';
+      document.getElementById('adminPassword').focus();
     }
+
+    function checkAdminPassword() {
+      const password = document.getElementById('adminPassword').value;
+      if (password === 'hazy23') {
+        document.getElementById('adminLoginForm').style.display = 'none';
+        document.getElementById('adminContent').style.display = 'block';
+        
+        // Sync streak input fields
+        document.getElementById('adminXWin').value = winStreak.x;
+        document.getElementById('adminOWin').value = winStreak.o;
+        document.getElementById('adminXLoss').value = lossStreak.x;
+        document.getElementById('adminOLoss').value = lossStreak.o;
+      } else {
+        alert('Incorrect password!');
+        document.getElementById('adminPassword').value = '';
+      }
+    }
+
+    // Allow Enter key to submit password
+    document.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && document.getElementById('adminPanel').style.display === 'block' && document.getElementById('adminLoginForm').style.display === 'block') {
+        checkAdminPassword();
+      }
+    });
 
     function toggleTrainer(checked) {
       trainerMode = checked;
@@ -1608,6 +1771,15 @@ button[title]:hover::after {
         mode = 'human';
         setStatus('🎓 Trainer Mode OFF. Bot kembali bermain normal.');
         startRound({ preserveScore: true, autoStartBot: false });
+      }
+    }
+
+    function toggleRageMode(checked) {
+      botRageModeEnabled = checked;
+      if (botRageModeEnabled) {
+        setStatus('😤 Rage Mode ENABLED! Bot will flip out after 30 losses! 🤬');
+      } else {
+        setStatus('😤 Rage Mode disabled.');
       }
     }
 
